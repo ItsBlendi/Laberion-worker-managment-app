@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laberion Worker Management</title>
+    <meta name="description" content="Worker management system for Laberion fruit juice company">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#2c5f2d",
+                        secondary: "#f5a623",
+                        accent: "#4a90e2",
+                        danger: "#e74c3c",
+                        success: "#27ae60",
+                        laberion: {
+                            green: "#2c5f2d",
+                            orange: "#f5a623",
+                            light: "#f8f9fa",
+                            dark: "#1a1a1a"
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        heading: ['Montserrat', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .kiosk-mode {
+            background: linear-gradient(135deg, #2c5f2d 0%, #1e3a1e 100%);
+        }
+        
+        .camera-frame {
+            border: 3px dashed #f5a623;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { border-color: #f5a623; }
+            50% { border-color: #ffd166; }
+        }
+        
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        
+        .attendance-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+        }
+        
+        .table-row-hover:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .chart-container {
+            height: 300px;
+        }
+        
+        .worker-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        
+        .login-error {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .strength-weak { background-color: #e74c3c; width: 25%; }
+        .strength-fair { background-color: #f39c12; width: 50%; }
+        .strength-good { background-color: #3498db; width: 75%; }
+        .strength-strong { background-color: #27ae60; width: 100%; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Main Container -->
+    <div id="app" class="min-h-screen">
+        <!-- Tablet Kiosk Interface -->
+        <div id="kiosk-interface" class="min-h-screen kiosk-mode flex flex-col items-center justify-center p-4">
+            <div class="text-center mb-8">
+                <div class="flex items-center justify-center mb-4">
+                    <i class="fas fa-apple-alt text-white text-4xl mr-3"></i>
+                    <h1 class="text-3xl md:text-4xl font-heading font-bold text-white">Laberion</h1>
+                </div>
+                <p class="text-white/80 text-lg">Fruit Juice Company</p>
+            </div>
+            
+            <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 md:p-8 max-w-md w-full">
+                <h2 class="text-2xl font-bold text-white text-center mb-6">Face Recognition Check-In</h2>
+                
+                <div id="camera-container" class="relative mb-6">
+                    <div class="camera-frame rounded-lg w-full h-64 flex items-center justify-center bg-black/20">
+                        <div class="text-center">
+                            <i class="fas fa-camera text-white/60 text-5xl mb-4"></i>
+                            <p class="text-white/80">Position your face in the frame</p>
+                        </div>
+                    </div>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="w-48 h-48 border-2 border-white/30 rounded-lg"></div>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-4 mb-6">
+                    <button id="check-in-btn" class="flex-1 bg-success hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                        <i class="fas fa-sign-in-alt mr-2"></i> Check In
+                    </button>
+                    <button id="check-out-btn" class="flex-1 bg-accent hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Check Out
+                    </button>
+                </div>
+                
+                <div id="result-message" class="hidden p-4 rounded-lg mb-4 text-center">
+                    <i class="fas fa-check-circle text-3xl mb-2"></i>
+                    <h3 class="text-xl font-bold mb-2"></h3>
+                    <p class="text-sm"></p>
+                </div>
+                
+                <div class="text-center">
+                    <button id="admin-login-btn" class="text-white/70 hover:text-white text-sm transition duration-200">
+                        <i class="fas fa-cog mr-1"></i> Admin Login
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-8 text-center text-white/60 text-sm">
+                <p><i class="fas fa-tablet-alt mr-2"></i> Tablet ID: <span id="tablet-id">KOS-001</span></p>
+                <p class="mt-1"><i class="far fa-clock mr-2"></i> <span id="current-time">Loading...</span></p>
+            </div>
+        </div>
+        
+        <!-- Admin Dashboard -->
+        <div id="admin-dashboard" class="hidden min-h-screen">
+            <!-- Sidebar -->
+            <div class="sidebar fixed left-0 top-0 h-full w-64 bg-laberion-dark text-white flex flex-col">
+                <div class="p-6 border-b border-white/10">
+                    <div class="flex items-center">
+                        <i class="fas fa-apple-alt text-laberion-orange text-2xl mr-3"></i>
+                        <h1 class="text-xl font-heading font-bold">Laberion Admin</h1>
+                    </div>
+                    <p class="text-white/60 text-sm mt-1">Worker Management System</p>
+                </div>
+                
+                <nav class="flex-1 p-4">
+                    <ul id="nav-menu" class="space-y-2"></ul>
+                </nav>
+                
+                <div class="p-4 border-t border-white/10">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-full bg-laberion-orange flex items-center justify-center mr-3">
+                            <span class="font-bold" id="admin-initial">A</span>
+                        </div>
+                        <div>
+                            <p class="font-medium" id="admin-name">Admin User</p>
+                            <p class="text-white/60 text-sm">Administrator</p>
+                        </div>
+                    </div>
+                    <button id="logout-btn" class="mt-4 w-full text-left text-white/70 hover:text-white py-2 px-3 rounded transition duration-200">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="ml-64 min-h-screen">
+                <!-- Top Bar -->
+                <header class="bg-white border-b border-gray-200 px-6 py-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 id="page-title" class="text-2xl font-heading font-bold text-gray-800">Dashboard</h2>
+                            <p class="text-gray-600 text-sm" id="page-subtitle">Overview of workers and attendance</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative">
+                                <i class="fas fa-bell text-gray-500 text-xl cursor-pointer hover:text-laberion-orange transition duration-200"></i>
+                                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm text-gray-600" id="current-date">Loading...</p>
+                                <p class="text-xs text-gray-500" id="current-time-admin">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+                
+                <!-- Main Content Area -->
+                <main class="p-6">
+                    <!-- Dashboard Overview -->
+                    <div id="dashboard-view" class="space-y-6">
+                        <!-- Stats Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 text-sm">Total Workers</p>
+                                        <h3 class="text-3xl font-bold text-gray-800 mt-1" id="total-workers">0</h3>
+                                    </div>
+                                    <div class="w-12 h-12 rounded-full bg-laberion-green/10 flex items-center justify-center">
+                                        <i class="fas fa-users text-laberion-green text-xl"></i>
+                                    </div>
+                                </div>
+                                <p class="text-success text-sm mt-2"><i class="fas fa-arrow-up mr-1"></i> <span id="active-workers">0</span> active today</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 text-sm">Checked In Today</p>
+                                        <h3 class="text-3xl font-bold text-gray-800 mt-1" id="checked-in-today">0</h3>
+                                    </div>
+                                    <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                                        <i class="fas fa-sign-in-alt text-success text-xl"></i>
+                                    </div>
+                                </div>
+                                <p class="text-gray-600 text-sm mt-2"><span id="check-in-percentage">0%</span> of active workers</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 text-sm">On Leave</p>
+                                        <h3 class="text-3xl font-bold text-gray-800 mt-1" id="on-leave">0</h3>
+                                    </div>
+                                    <div class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                                        <i class="fas fa-umbrella-beach text-accent text-xl"></i>
+                                    </div>
+                                </div>
+                                <p class="text-gray-600 text-sm mt-2"><span id="leave-this-week">0</span> this week</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 text-sm">Avg. Hours Today</p>
+                                        <h3 class="text-3xl font-bold text-gray-800 mt-1" id="avg-hours">0.0</h3>
+                                    </div>
+                                    <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
+                                        <i class="far fa-clock text-secondary text-xl"></i>
+                                    </div>
+                                </div>
+                                <p class="text-gray-600 text-sm mt-2">Based on completed shifts</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Activity & Workers List -->
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Recent Check-Ins -->
+                            <div class="lg:col-span-2">
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                                    <div class="px-6 py-4 border-b border-gray-100">
+                                        <h3 class="font-heading font-bold text-gray-800">Recent Check-Ins/Outs</h3>
+                                    </div>
+                                    <div class="p-4">
+                                        <div id="recent-activity" class="space-y-3"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Quick Actions -->
+                            <div>
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                                    <div class="px-6 py-4 border-b border-gray-100">
+                                        <h3 class="font-heading font-bold text-gray-800">Quick Actions</h3>
+                                    </div>
+                                    <div class="p-4 space-y-3">
+                                        <button id="add-worker-btn" class="w-full bg-laberion-green hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                                            <i class="fas fa-user-plus mr-2"></i> Add New Worker
+                                        </button>
+                                        <button id="view-attendance-btn" class="w-full bg-accent hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                                            <i class="fas fa-calendar-alt mr-2"></i> View Attendance
+                                        </button>
+                                        <button id="manage-leaves-btn" class="w-full bg-secondary hover:bg-orange-600 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                                            <i class="fas fa-umbrella-beach mr-2"></i> Manage Leaves
+                                        </button>
+                                        <button id="generate-report-btn" class="w-full bg-gray-800 hover:bg-black text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                                            <i class="fas fa-file-export mr-2"></i> Generate Report
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Workers Table -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                                <h3 class="font-heading font-bold text-gray-800">All Workers</h3>
+                                <div class="flex space-x-2">
+                                    <input type="text" id="search-workers" placeholder="Search workers..." class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                    <select id="filter-department" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="">All Departments</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Worker</th>
+                                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Code</th>
+                                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Check-In</th>
+                                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="workers-table-body" class="divide-y divide-gray-200"></tbody>
+                                </table>
+                            </div>
+                            <div class="px-6 py-4 border-t border-gray-100 flex justify-between items-center">
+                                <p class="text-sm text-gray-600" id="table-summary">Showing 0 workers</p>
+                                <div class="flex space-x-2">
+                                    <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">Previous</button>
+                                    <button id="next-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">Next</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Worker Details View -->
+                    <div id="worker-details-view" class="hidden space-y-6">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <button id="back-to-dashboard" class="mr-4 text-gray-600 hover:text-laberion-green">
+                                    <i class="fas fa-arrow-left text-xl"></i>
+                                </button>
+                                <div>
+                                    <h2 class="text-2xl font-heading font-bold text-gray-800" id="worker-detail-name">Worker Name</h2>
+                                    <p class="text-gray-600" id="worker-detail-code">Employee Code</p>
+                                </div>
+                            </div>
+                            <div class="flex space-x-3">
+                                <button id="edit-worker-btn" class="px-4 py-2 bg-accent hover:bg-blue-600 text-white rounded-lg transition duration-200">
+                                    <i class="fas fa-edit mr-2"></i> Edit
+                                </button>
+                                <button id="add-face-btn" class="px-4 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200">
+                                    <i class="fas fa-camera mr-2"></i> Add Face
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Worker Info -->
+                            <div class="lg:col-span-1">
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                    <div class="text-center mb-6">
+                                        <div class="w-32 h-32 rounded-full bg-gray-200 mx-auto mb-4 overflow-hidden">
+                                            <img id="worker-photo" src="https://picsum.photos/200?random=1" alt="Worker photo" class="w-full h-full object-cover">
+                                        </div>
+                                        <h3 class="text-xl font-bold" id="worker-full-name">Full Name</h3>
+                                        <p class="text-gray-600" id="worker-position">Position</p>
+                                        <div class="mt-2">
+                                            <span id="worker-status-badge" class="attendance-badge bg-success text-white">Active</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="space-y-4">
+                                        <div>
+                                            <p class="text-sm text-gray-500">Email</p>
+                                            <p class="font-medium" id="worker-email">email@example.com</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Phone</p>
+                                            <p class="font-medium" id="worker-phone">+383 44 123 456</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Department</p>
+                                            <p class="font-medium" id="worker-department">Production</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Joined Date</p>
+                                            <p class="font-medium" id="worker-joined">2024-01-15</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Attendance History -->
+                            <div class="lg:col-span-2">
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                                    <div class="px-6 py-4 border-b border-gray-100">
+                                        <h3 class="font-heading font-bold text-gray-800">Attendance History</h3>
+                                    </div>
+                                    <div class="p-6">
+                                        <div class="mb-6">
+                                            <div class="flex justify-between items-center mb-4">
+                                                <h4 class="font-medium text-gray-700">This Month</h4>
+                                                <div class="flex space-x-2">
+                                                    <input type="month" id="attendance-month" class="px-3 py-1 border border-gray-300 rounded">
+                                                    <button id="export-attendance" class="px-3 py-1 bg-gray-800 hover:bg-black text-white text-sm rounded">
+                                                        <i class="fas fa-download mr-1"></i> Export
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div id="attendance-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
+                                        </div>
+                                        
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full">
+                                                <thead class="bg-gray-50">
+                                                    <tr>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-500">Date</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-500">Check In</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-500">Check Out</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-500">Hours</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-500">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="attendance-history" class="divide-y divide-gray-200"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Leave Schedule -->
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 mt-6">
+                                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                                        <h3 class="font-heading font-bold text-gray-800">Leave Schedule</h3>
+                                        <button id="request-leave-btn" class="px-3 py-1 bg-secondary hover:bg-orange-600 text-white text-sm rounded">
+                                            <i class="fas fa-plus mr-1"></i> Request Leave
+                                        </button>
+                                    </div>
+                                    <div class="p-6">
+                                        <div id="leave-schedule" class="space-y-3"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Add/Edit Worker Modal -->
+                    <div id="worker-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+                        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                                <h3 class="text-xl font-heading font-bold" id="modal-title">Add New Worker</h3>
+                                <button id="close-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                            </div>
+                            <div class="p-6">
+                                <form id="worker-form" class="space-y-6">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                                            <input type="text" id="input-name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Employee Code *</label>
+                                            <input type="text" id="input-code" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                            <input type="email" id="input-email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                                            <input type="tel" id="input-phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                                            <select id="input-department" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                                <option value="">Select Department</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Position *</label>
+                                            <input type="text" id="input-position" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                        <div class="flex space-x-4">
+                                            <label class="flex items-center">
+                                                <input type="radio" name="status" value="active" checked class="mr-2">
+                                                <span>Active</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="radio" name="status" value="inactive" class="mr-2">
+                                                <span>Inactive</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="radio" name="status" value="suspended" class="mr-2">
+                                                <span>Suspended</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="face-upload-section" class="hidden">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Face Enrollment</label>
+                                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                                            <i class="fas fa-camera text-4xl text-gray-400 mb-4"></i>
+                                            <p class="text-gray-600 mb-2">Take multiple photos for better recognition</p>
+                                            <p class="text-sm text-gray-500 mb-4">Position face in good lighting, looking straight at camera</p>
+                                            <button type="button" id="capture-face-btn" class="px-4 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg">
+                                                <i class="fas fa-camera mr-2"></i> Capture Face
+                                            </button>
+                                        </div>
+                                        <div id="face-preview" class="mt-4 grid grid-cols-3 gap-4 hidden"></div>
+                                    </div>
+                                    
+                                    <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                                        <button type="button" id="cancel-modal" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200">
+                                            Cancel
+                                        </button>
+                                        <button type="submit" id="save-worker-btn" class="px-6 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200">
+                                            Save Worker
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+        
+        <!-- Admin Login Modal -->
+        <div id="admin-login-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-xl font-heading font-bold" id="login-title">Admin Login</h3>
+                    <p class="text-sm text-gray-600 mt-1" id="login-subtitle">Enter your credentials to access the admin panel</p>
+                </div>
+                <div class="p-6">
+                    <form id="login-form" class="space-y-6">
+                        <div id="first-time-setup" class="hidden space-y-4">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="flex items-start">
+                                    <i class="fas fa-info-circle text-blue-500 text-lg mr-3 mt-0.5"></i>
+                                    <div>
+                                        <p class="font-medium text-blue-800">First-Time Setup</p>
+                                        <p class="text-blue-700 text-sm mt-1">Welcome! Please create your admin account to get started.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                            <input type="text" id="login-username" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Choose a username">
+                            <p class="text-xs text-gray-500 mt-1" id="username-hint">Minimum 3 characters</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input type="password" id="login-password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Choose a password">
+                            <div class="mt-2">
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-xs text-gray-500">Password strength:</span>
+                                    <span class="text-xs font-medium" id="strength-text">Weak</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div id="password-strength-bar" class="password-strength strength-weak"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="confirm-password-field" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                            <input type="password" id="login-confirm-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Confirm your password">
+                            <p class="text-xs text-gray-500 mt-1">Passwords must match</p>
+                        </div>
+                        
+                        <div id="login-error" class="hidden bg-danger/10 text-danger p-3 rounded-lg text-sm">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span id="error-message">Invalid username or password</span>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" id="remember-me" class="mr-2">
+                            <label for="remember-me" class="text-sm text-gray-600">Remember me</label>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4">
+                            <button type="button" id="cancel-login" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200">
+                                Cancel
+                            </button>
+                            <button type="submit" class="px-6 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200" id="login-submit-btn">
+                                Login
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Layer
+        const appData = {
+            currentView: "kiosk",
+            currentWorkerDetail: null,
+            currentPage: 1,
+            itemsPerPage: 10,
+            tabletId: "KOS-001",
+            adminUser: null,
+            isFirstTimeSetup: true, // Changed to true for first-time setup
+            departments: [
+                { "id": "production", "name": "Production" },
+                { "id": "packaging", "name": "Packaging" },
+                { "id": "quality", "name": "Quality Control" },
+                { "id": "logistics", "name": "Logistics" },
+                { "id": "maintenance", "name": "Maintenance" },
+                { "id": "administration", "name": "Administration" }
+            ],
+            navigationItems: [
+                { "id": "dashboard", "label": "Dashboard", "icon": "fas fa-tachometer-alt", "active": true },
+                { "id": "workers", "label": "Workers", "icon": "fas fa-users" },
+                { "id": "attendance", "label": "Attendance", "icon": "fas fa-calendar-check" },
+                { "id": "shifts", "label": "Shifts", "icon": "fas fa-clock" },
+                { "id": "leaves", "label": "Leaves", "icon": "fas fa-umbrella-beach" },
+                { "id": "reports", "label": "Reports", "icon": "fas fa-chart-bar" },
+                { "id": "devices", "label": "Devices", "icon": "fas fa-tablet-alt" },
+                { "id": "settings", "label": "Settings", "icon": "fas fa-cog" }
+            ],
+            workers: [
+                {
+                    "id": 1,
+                    "fullName": "Artan Berisha",
+                    "employeeCode": "LAB-001",
+                    "email": "artan@laberion.com",
+                    "phone": "+383 44 111 222",
+                    "department": "production",
+                    "position": "Production Supervisor",
+                    "status": "active",
+                    "joinedDate": "2023-03-15",
+                    "photo": "https://picsum.photos/200?random=101",
+                    "lastCheckIn": "2024-01-15 08:05:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 2,
+                    "fullName": "Lirije Gashi",
+                    "employeeCode": "LAB-002",
+                    "email": "lirije@laberion.com",
+                    "phone": "+383 44 222 333",
+                    "department": "quality",
+                    "position": "Quality Inspector",
+                    "status": "active",
+                    "joinedDate": "2023-05-20",
+                    "photo": "https://picsum.photos/200?random=102",
+                    "lastCheckIn": "2024-01-15 08:15:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 3,
+                    "fullName": "Bekim Krasniqi",
+                    "employeeCode": "LAB-003",
+                    "email": "bekim@laberion.com",
+                    "phone": "+383 44 333 444",
+                    "department": "packaging",
+                    "position": "Packaging Operator",
+                    "status": "active",
+                    "joinedDate": "2023-06-10",
+                    "photo": "https://picsum.photos/200?random=103",
+                    "lastCheckIn": "2024-01-15 08:20:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 4,
+                    "fullName": "Valmira Shala",
+                    "employeeCode": "LAB-004",
+                    "email": "valmira@laberion.com",
+                    "phone": "+383 44 444 555",
+                    "department": "logistics",
+                    "position": "Logistics Coordinator",
+                    "status": "active",
+                    "joinedDate": "2023-07-05",
+                    "photo": "https://picsum.photos/200?random=104",
+                    "lastCheckIn": "2024-01-15 08:10:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 5,
+                    "fullName": "Driton Morina",
+                    "employeeCode": "LAB-005",
+                    "email": "driton@laberion.com",
+                    "phone": "+383 44 555 666",
+                    "department": "maintenance",
+                    "position": "Maintenance Technician",
+                    "status": "active",
+                    "joinedDate": "2023-08-15",
+                    "photo": "https://picsum.photos/200?random=105",
+                    "lastCheckIn": "2024-01-15 08:25:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 6,
+                    "fullName": "Arta Rexhepi",
+                    "employeeCode": "LAB-006",
+                    "email": "arta@laberion.com",
+                    "phone": "+383 44 666 777",
+                    "department": "administration",
+                    "position": "HR Administrator",
+                    "status": "active",
+                    "joinedDate": "2023-09-01",
+                    "photo": "https://picsum.photos/200?random=106",
+                    "lastCheckIn": "2024-01-15 08:30:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 7,
+                    "fullName": "Fisnik Aliu",
+                    "employeeCode": "LAB-007",
+                    "email": "fisnik@laberion.com",
+                    "phone": "+383 44 777 888",
+                    "department": "production",
+                    "position": "Juice Production Specialist",
+                    "status": "active",
+                    "joinedDate": "2023-10-10",
+                    "photo": "https://picsum.photos/200?random=107",
+                    "lastCheckIn": "2024-01-15 08:00:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 8,
+                    "fullName": "Blerta Hoxha",
+                    "employeeCode": "LAB-008",
+                    "email": "blerta@laberion.com",
+                    "phone": "+383 44 888 999",
+                    "department": "quality",
+                    "position": "Lab Technician",
+                    "status": "inactive",
+                    "joinedDate": "2023-11-15",
+                    "photo": "https://picsum.photos/200?random=108",
+                    "lastCheckIn": "2024-01-14 08:15:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 9,
+                    "fullName": "Kushtrim Thaçi",
+                    "employeeCode": "LAB-009",
+                    "email": "kushtrim@laberion.com",
+                    "phone": "+383 44 999 000",
+                    "department": "packaging",
+                    "position": "Packaging Supervisor",
+                    "status": "active",
+                    "joinedDate": "2023-12-01",
+                    "photo": "https://picsum.photos/200?random=109",
+                    "lastCheckIn": "2024-01-15 08:18:00",
+                    "faceEnrolled": true
+                },
+                {
+                    "id": 10,
+                    "fullName": "Elona Bajrami",
+                    "employeeCode": "LAB-010",
+                    "email": "elona@laberion.com",
+                    "phone": "+383 44 000 111",
+                    "department": "logistics",
+                    "position": "Warehouse Manager",
+                    "status": "active",
+                    "joinedDate": "2024-01-05",
+                    "photo": "https://picsum.photos/200?random=110",
+                    "lastCheckIn": "2024-01-15 08:22:00",
+                    "faceEnrolled": false
+                }
+            ],
+            attendanceRecords: [
+                { "id": 1, "workerId": 1, "date": "2024-01-15", "checkIn": "08:05", "checkOut": "16:30", "hours": 8.42, "status": "present" },
+                { "id": 2, "workerId": 2, "date": "2024-01-15", "checkIn": "08:15", "checkOut": "16:45", "hours": 8.5, "status": "present" },
+                { "id": 3, "workerId": 3, "date": "2024-01-15", "checkIn": "08:20", "checkOut": "16:40", "hours": 8.33, "status": "present" },
+                { "id": 4, "workerId": 4, "date": "2024-01-15", "checkIn": "08:10", "checkOut": "16:50", "hours": 8.67, "status": "present" },
+                { "id": 5, "workerId": 5, "date": "2024-01-15", "checkIn": "08:25", "checkOut": "16:35", "hours": 8.17, "status": "present" },
+                { "id": 6, "workerId": 1, "date": "2024-01-14", "checkIn": "08:00", "checkOut": "16:30", "hours": 8.5, "status": "present" },
+                { "id": 7, "workerId": 2, "date": "2024-01-14", "checkIn": "08:10", "checkOut": "16:40", "hours": 8.5, "status": "present" },
+                { "id": 8, "workerId": 3, "date": "2024-01-14", "checkIn": "08:15", "checkOut": "16:45", "hours": 8.5, "status": "present" }
+            ],
+            recentActivity: [
+                { "id": 1, "workerId": 1, "workerName": "Artan Berisha", "type": "check-in", "time": "08:05", "status": "success" },
+                { "id": 2, "workerId": 2, "workerName": "Lirije Gashi", "type": "check-in", "time": "08:15", "status": "success" },
+                { "id": 3, "workerId": 3, "workerName": "Bekim Krasniqi", "type": "check-in", "time": "08:20", "status": "success" },
+                { "id": 4, "workerId": 4, "workerName": "Valmira Shala", "type": "check-in", "time": "08:10", "status": "success" },
+                { "id": 5, "workerId": 5, "workerName": "Driton Morina", "type": "check-in", "time": "08:25", "status": "success" }
+            ],
+            leaveRequests: [
+                { "id": 1, "workerId": 8, "workerName": "Blerta Hoxha", "startDate": "2024-01-15", "endDate": "2024-01-19", "reason": "Medical leave", "status": "approved" },
+                { "id": 2, "workerId": 6, "workerName": "Arta Rexhepi", "startDate": "2024-01-22", "endDate": "2024-01-26", "reason": "Vacation", "status": "pending" },
+                { "id": 3, "workerId": 3, "workerName": "Bekim Krasniqi", "startDate": "2024-02-01", "endDate": "2024-02-05", "reason": "Family event", "status": "pending" }
+            ]
+        };
+
+        // Reusable Render Functions
+        function renderNavigationItems(items) {
+            return items.map(item => 
+                "<li><a href=\"#\" data-nav=\"" + item.id + "\" class=\"flex items-center py-3 px-4 rounded-lg transition duration-200 " + (item.active ? "bg-white/10 text-white" : "text-white/70 hover:text-white hover:bg-white/5") + "\"><i class=\"" + item.icon + " mr-3 w-5 text-center\"></i>" + item.label + "</a></li>"
+            ).join("");
+        }
+
+        function renderWorkersTable(workers) {
+            if (workers.length === 0) {
+                return "<tr><td colspan=\"6\" class=\"py-8 text-center text-gray-500\">No workers found</td></tr>";
+            }
+            
+            return workers.map(worker => {
+                const statusClass = worker.status === "active" ? "bg-success/20 text-success" : 
+                                  worker.status === "inactive" ? "bg-gray-200 text-gray-700" : 
+                                  "bg-danger/20 text-danger";
+                const statusText = worker.status.charAt(0).toUpperCase() + worker.status.slice(1);
+                const department = appData.departments.find(d => d.id === worker.department)?.name || worker.department;
+                
+                return "<tr class=\"table-row-hover\">" +
+                    "<td class=\"py-4 px-6\"><div class=\"flex items-center\"><img src=\"" + worker.photo + "\" alt=\"" + worker.fullName + "\" class=\"worker-avatar mr-3\"><div><p class=\"font-medium\">" + worker.fullName + "</p><p class=\"text-sm text-gray-500\">" + worker.position + "</p></div></div></td>" +
+                    "<td class=\"py-4 px-6\"><span class=\"font-mono text-sm\">" + worker.employeeCode + "</span></td>" +
+                    "<td class=\"py-4 px-6\">" + department + "</td>" +
+                    "<td class=\"py-4 px-6\"><span class=\"attendance-badge " + statusClass + "\">" + statusText + "</span></td>" +
+                    "<td class=\"py-4 px-6\">" + (worker.lastCheckIn ? formatTime(worker.lastCheckIn) : "Never") + "</td>" +
+                    "<td class=\"py-4 px-6\"><button class=\"text-accent hover:text-blue-700 mr-3 view-worker-btn\" data-id=\"" + worker.id + "\"><i class=\"fas fa-eye\"></i></button><button class=\"text-secondary hover:text-orange-700 edit-worker-btn\" data-id=\"" + worker.id + "\"><i class=\"fas fa-edit\"></i></button></td>" +
+                "</tr>";
+            }).join("");
+        }
+
+        function renderRecentActivity(activities) {
+            if (activities.length === 0) {
+                return "<p class=\"text-gray-500 text-center py-4\">No recent activity</p>";
+            }
+            
+            return activities.map(activity => {
+                const typeClass = activity.type === "check-in" ? "bg-success/20 text-success" : "bg-accent/20 text-accent";
+                const typeIcon = activity.type === "check-in" ? "fas fa-sign-in-alt" : "fas fa-sign-out-alt";
+                const typeText = activity.type === "check-in" ? "Checked in" : "Checked out";
+                
+                return "<div class=\"flex items-center justify-between p-3 bg-gray-50 rounded-lg\">" +
+                    "<div class=\"flex items-center\">" +
+                        "<div class=\"w-10 h-10 rounded-full " + typeClass + " flex items-center justify-center mr-3\">" +
+                            "<i class=\"" + typeIcon + "\"></i>" +
+                        "</div>" +
+                        "<div>" +
+                            "<p class=\"font-medium\">" + activity.workerName + "</p>" +
+                            "<p class=\"text-sm text-gray-500\">" + typeText + "</p>" +
+                        "</div>" +
+                    "</div>" +
+                    "<div class=\"text-right\">" +
+                        "<p class=\"font-medium\">" + activity.time + "</p>" +
+                        "<p class=\"text-xs text-gray-500\">Today</p>" +
+                    "</div>" +
+                "</div>";
+            }).join("");
+        }
+
+        function renderDepartmentsSelect(selected = "") {
+            return appData.departments.map(dept => 
+                "<option value=\"" + dept.id + "\" " + (dept.id === selected ? "selected" : "") + ">" + dept.name + "</option>"
+            ).join("");
+        }
+
+        function renderAttendanceStats(workerId) {
+            const workerAttendance = appData.attendanceRecords.filter(a => a.workerId === workerId);
+            const presentDays = workerAttendance.filter(a => a.status === "present").length;
+            const totalHours = workerAttendance.reduce((sum, a) => sum + a.hours, 0);
+            const avgHours = presentDays > 0 ? (totalHours / presentDays).toFixed(1) : "0.0";
+            const lateDays = workerAttendance.filter(a => {
+                if (!a.checkIn) return false;
+                const [hours] = a.checkIn.split(":");
+                return parseInt(hours) >= 8 && parseInt(hours) <= 9;
+            }).length;
+            
+            return [
+                { "label": "Days Present", "value": presentDays, "color": "text-success", "icon": "fas fa-calendar-check" },
+                { "label": "Total Hours", "value": totalHours.toFixed(1), "color": "text-accent", "icon": "far fa-clock" },
+                { "label": "Avg. Hours/Day", "value": avgHours, "color": "text-secondary", "icon": "fas fa-chart-line" },
+                { "label": "Late Arrivals", "value": lateDays, "color": "text-danger", "icon": "fas fa-exclamation-triangle" }
+            ].map(stat => 
+                "<div class=\"bg-gray-50 rounded-lg p-4 text-center\">" +
+                    "<i class=\"" + stat.icon + " text-2xl " + stat.color + " mb-2\"></i>" +
+                    "<p class=\"text-2xl font-bold\">" + stat.value + "</p>" +
+                    "<p class=\"text-sm text-gray-600\">" + stat.label + "</p>" +
+                "</div>"
+            ).join("");
+        }
+
+        function renderAttendanceHistory(workerId) {
+            const workerAttendance = appData.attendanceRecords.filter(a => a.workerId === workerId);
+            if (workerAttendance.length === 0) {
+                return "<tr><td colspan=\"5\" class=\"py-8 text-center text-gray-500\">No attendance records found</td></tr>";
+            }
+            
+            return workerAttendance.map(record => {
+                const statusClass = record.status === "present" ? "bg-success/20 text-success" : 
+                                  record.status === "absent" ? "bg-danger/20 text-danger" : 
+                                  "bg-secondary/20 text-secondary";
+                const statusText = record.status.charAt(0).toUpperCase() + record.status.slice(1);
+                
+                return "<tr>" +
+                    "<td class=\"py-3 px-4\">" + formatDate(record.date) + "</td>" +
+                    "<td class=\"py-3 px-4\">" + record.checkIn + "</td>" +
+                    "<td class=\"py-3 px-4\">" + (record.checkOut || "-") + "</td>" +
+                    "<td class=\"py-3 px-4\">" + (record.hours || "-") + "</td>" +
+                    "<td class=\"py-3 px-4\"><span class=\"attendance-badge " + statusClass + "\">" + statusText + "</span></td>" +
+                "</tr>";
+            }).join("");
+        }
+
+        function renderLeaveSchedule(workerId) {
+            const workerLeaves = appData.leaveRequests.filter(l => l.workerId === workerId);
+            if (workerLeaves.length === 0) {
+                return "<p class=\"text-gray-500 text-center py-4\">No leave requests</p>";
+            }
+            
+            return workerLeaves.map(leave => {
+                const statusClass = leave.status === "approved" ? "bg-success/20 text-success" : 
+                                  leave.status === "pending" ? "bg-secondary/20 text-secondary" : 
+                                  "bg-danger/20 text-danger";
+                const statusText = leave.status.charAt(0).toUpperCase() + leave.status.slice(1);
+                
+                return "<div class=\"flex items-center justify-between p-3 bg-gray-50 rounded-lg\">" +
+                    "<div>" +
+                        "<p class=\"font-medium\">" + formatDate(leave.startDate) + " to " + formatDate(leave.endDate) + "</p>" +
+                        "<p class=\"text-sm text-gray-600\">" + leave.reason + "</p>" +
+                    "</div>" +
+                    "<span class=\"attendance-badge " + statusClass + "\">" + statusText + "</span>" +
+                "</div>";
+            }).join("");
+        }
+
+        // Utility Functions
+        function formatTime(dateTimeStr) {
+            if (!dateTimeStr) return "";
+            const date = new Date(dateTimeStr);
+            return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return "";
+            const date = new Date(dateStr);
+            return date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            const dateStr = now.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+            
+            document.getElementById("current-time").textContent = timeStr;
+            document.getElementById("current-time-admin").textContent = timeStr;
+            document.getElementById("current-date").textContent = dateStr;
+        }
+
+        function checkPasswordStrength(password) {
+            let strength = 0;
+            if (password.length >= 8) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[a-z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^A-Za-z0-9]/.test(password)) strength++;
+            
+            return strength;
+        }
+
+        function updatePasswordStrength(password) {
+            const strength = checkPasswordStrength(password);
+            const bar = document.getElementById("password-strength-bar");
+            const text = document.getElementById("strength-text");
+            
+            bar.className = "password-strength ";
+            if (strength < 2) {
+                bar.classList.add("strength-weak");
+                text.textContent = "Weak";
+                text.className = "text-xs font-medium text-danger";
+            } else if (strength < 3) {
+                bar.classList.add("strength-fair");
+                text.textContent = "Fair";
+                text.className = "text-xs font-medium text-secondary";
+            } else if (strength < 4) {
+                bar.classList.add("strength-good");
+                text.textContent = "Good";
+                text.className = "text-xs font-medium text-accent";
+            } else {
+                bar.classList.add("strength-strong");
+                text.textContent = "Strong";
+                text.className = "text-xs font-medium text-success";
+            }
+        }
+
+        // Check if admin account exists in localStorage
+        function checkAdminAccount() {
+            const adminData = localStorage.getItem("laberion_admin");
+            if (adminData) {
+                try {
+                    appData.adminUser = JSON.parse(adminData);
+                    appData.isFirstTimeSetup = false;
+                } catch (e) {
+                    appData.isFirstTimeSetup = true;
+                }
+            }
+        }
+
+        // Save admin account to localStorage
+        function saveAdminAccount(username, password) {
+            const adminData = {
+                username: username,
+                name: username.charAt(0).toUpperCase() + username.slice(1),
+                role: "Administrator",
+                createdAt: new Date().toISOString()
+            };
+            localStorage.setItem("laberion_admin", JSON.stringify(adminData));
+            localStorage.setItem("laberion_admin_password", btoa(password)); // Simple encoding, not secure for production
+            appData.adminUser = adminData;
+            appData.isFirstTimeSetup = false;
+        }
+
+        // Verify admin credentials
+        function verifyAdminCredentials(username, password) {
+            if (appData.isFirstTimeSetup) {
+                // First-time setup - create new account
+                if (username.length < 3) {
+                    return { success: false, message: "Username must be at least 3 characters" };
+                }
+                if (password.length < 6) {
+                    return { success: false, message: "Password must be at least 6 characters" };
+                }
+                saveAdminAccount(username, password);
+                return { success: true, message: "Account created successfully" };
+            } else {
+                // Existing account - verify credentials
+                const storedUsername = appData.adminUser?.username;
+                const storedPassword = localStorage.getItem("laberion_admin_password");
+                
+                if (username === storedUsername && btoa(password) === storedPassword) {
+                    return { success: true, message: "Login successful" };
+                } else {
+                    return { success: false, message: "Invalid username or password" };
+                }
+            }
+        }
+
+        // Initialize Application
+        function initApp() {
+            checkAdminAccount();
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Set tablet ID
+            document.getElementById("tablet-id").textContent = appData.tabletId;
+            
+            // Initialize navigation
+            document.getElementById("nav-menu").innerHTML = renderNavigationItems(appData.navigationItems);
+            
+            // Initialize department filters
+            document.getElementById("filter-department").innerHTML = 
+                "<option value=\"\">All Departments</option>" + renderDepartmentsSelect();
+            document.getElementById("input-department").innerHTML = 
+                "<option value=\"\">Select Department</option>" + renderDepartmentsSelect();
+            
+            // Update dashboard stats
+            updateDashboardStats();
+            
+            // Render initial data
+            renderWorkersList();
+            renderRecentActivityList();
+            
+            // Setup event listeners
+            setupEventListeners();
+        }
+
+        function updateDashboardStats() {
+            const totalWorkers = appData.workers.length;
+            const activeWorkers = appData.workers.filter(w => w.status === "active").length;
+            const checkedInToday = appData.recentActivity.filter(a => a.type === "check-in").length;
+            const onLeave = appData.leaveRequests.filter(l => l.status === "approved").length;
+            const leaveThisWeek = appData.leaveRequests.filter(l => {
+                const start = new Date(l.startDate);
+                const now = new Date();
+                const diffTime = Math.abs(start - now);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays <= 7;
+            }).length;
+            
+            const avgHours = appData.attendanceRecords.length > 0 ? 
+                (appData.attendanceRecords.reduce((sum, a) => sum + a.hours, 0) / appData.attendanceRecords.length).toFixed(1) : "0.0";
+            
+            document.getElementById("total-workers").textContent = totalWorkers;
+            document.getElementById("active-workers").textContent = activeWorkers;
+            document.getElementById("checked-in-today").textContent = checkedInToday;
+            document.getElementById("check-in-percentage").textContent = activeWorkers > 0 ? 
+                Math.round((checkedInToday / activeWorkers) * 100) + "%" : "0%";
+            document.getElementById("on-leave").textContent = onLeave;
+            document.getElementById("leave-this-week").textContent = leaveThisWeek;
+            document.getElementById("avg-hours").textContent = avgHours;
+            document.getElementById("table-summary").textContent = `Showing ${Math.min(appData.itemsPerPage, appData.workers.length)} of ${appData.workers.length} workers`;
+        }
+
+        function renderWorkersList() {
+            const startIndex = (appData.currentPage - 1) * appData.itemsPerPage;
+            const endIndex = startIndex + appData.itemsPerPage;
+            const filteredWorkers = filterWorkers();
+            const paginatedWorkers = filteredWorkers.slice(startIndex, endIndex);
+            
+            document.getElementById("workers-table-body").innerHTML = renderWorkersTable(paginatedWorkers);
+            document.getElementById("prev-page").disabled = appData.currentPage === 1;
+            document.getElementById("next-page").disabled = endIndex >= filteredWorkers.length;
+            document.getElementById("table-summary").textContent = `Showing ${paginatedWorkers.length} of ${filteredWorkers.length} workers`;
+        }
+
+        function filterWorkers() {
+            const searchTerm = document.getElementById("search-workers").value.toLowerCase();
+            const departmentFilter = document.getElementById("filter-department").value;
+            
+            return appData.workers.filter(worker => {
+                const matchesSearch = !searchTerm || 
+                    worker.fullName.toLowerCase().includes(searchTerm) ||
+                    worker.employeeCode.toLowerCase().includes(searchTerm) ||
+                    worker.position.toLowerCase().includes(searchTerm);
+                
+                const matchesDepartment = !departmentFilter || worker.department === departmentFilter;
+                
+                return matchesSearch && matchesDepartment;
+            });
+        }
+
+        function renderRecentActivityList() {
+            document.getElementById("recent-activity").innerHTML = renderRecentActivity(appData.recentActivity);
+        }
+
+        function showWorkerDetails(workerId) {
+            const worker = appData.workers.find(w => w.id === workerId);
+            if (!worker) return;
+            
+            appData.currentWorkerDetail = worker;
+            
+            // Update worker details
+            document.getElementById("worker-detail-name").textContent = worker.fullName;
+            document.getElementById("worker-detail-code").textContent = worker.employeeCode;
+            document.getElementById("worker-full-name").textContent = worker.fullName;
+            document.getElementById("worker-position").textContent = worker.position;
+            document.getElementById("worker-email").textContent = worker.email || "Not provided";
+            document.getElementById("worker-phone").textContent = worker.phone || "Not provided";
+            document.getElementById("worker-department").textContent = 
+                appData.departments.find(d => d.id === worker.department)?.name || worker.department;
+            document.getElementById("worker-joined").textContent = formatDate(worker.joinedDate);
+            document.getElementById("worker-photo").src = worker.photo;
+            
+            // Update status badge
+            const statusBadge = document.getElementById("worker-status-badge");
+            statusBadge.className = "attendance-badge ";
+            if (worker.status === "active") {
+                statusBadge.classList.add("bg-success", "text-white");
+                statusBadge.textContent = "Active";
+            } else if (worker.status === "inactive") {
+                statusBadge.classList.add("bg-gray-200", "text-gray-700");
+                statusBadge.textContent = "Inactive";
+            } else {
+                statusBadge.classList.add("bg-danger", "text-white");
+                statusBadge.textContent = "Suspended";
+            }
+            
+            // Update admin initial
+            if (appData.adminUser) {
+                document.getElementById("admin-initial").textContent = appData.adminUser.name.charAt(0).toUpperCase();
+                document.getElementById("admin-name").textContent = appData.adminUser.name;
+            }
+            
+            // Render attendance stats and history
+            document.getElementById("attendance-stats").innerHTML = renderAttendanceStats(workerId);
+            document.getElementById("attendance-history").innerHTML = renderAttendanceHistory(workerId);
+            document.getElementById("leave-schedule").innerHTML = renderLeaveSchedule(workerId);
+            
+            // Switch to worker details view
+            document.getElementById("dashboard-view").classList.add("hidden");
+            document.getElementById("worker-details-view").classList.remove("hidden");
+            document.getElementById("page-title").textContent = "Worker Details";
+            document.getElementById("page-subtitle").textContent = worker.fullName;
+        }
+
+        function showAddWorkerModal(worker = null) {
+            const modal = document.getElementById("worker-modal");
+            const title = document.getElementById("modal-title");
+            const form = document.getElementById("worker-form");
+            const faceSection = document.getElementById("face-upload-section");
+            
+            if (worker) {
+                // Edit mode
+                title.textContent = "Edit Worker";
+                document.getElementById("input-name").value = worker.fullName;
+                document.getElementById("input-code").value = worker.employeeCode;
+                document.getElementById("input-email").value = worker.email || "";
+                document.getElementById("input-phone").value = worker.phone || "";
+                document.getElementById("input-department").value = worker.department;
+                document.getElementById("input-position").value = worker.position;
+                
+                // Set status radio
+                document.querySelector(`input[name="status"][value="${worker.status}"]`).checked = true;
+                
+                // Show face upload section if not enrolled
+                if (!worker.faceEnrolled) {
+                    faceSection.classList.remove("hidden");
+                } else {
+                    faceSection.classList.add("hidden");
+                }
+                
+                form.dataset.mode = "edit";
+                form.dataset.workerId = worker.id;
+            } else {
+                // Add mode
+                title.textContent = "Add New Worker";
+                form.reset();
+                document.getElementById("input-department").innerHTML = 
+                    "<option value=\"\">Select Department</option>" + renderDepartmentsSelect();
+                faceSection.classList.remove("hidden");
+                form.dataset.mode = "add";
+                delete form.dataset.workerId;
+            }
+            
+            modal.classList.remove("hidden");
+        }
+
+        function setupEventListeners() {
+            // Tablet buttons
+            document.getElementById("check-in-btn").addEventListener("click", simulateCheckIn);
+            document.getElementById("check-out-btn").addEventListener("click", simulateCheckOut);
+            document.getElementById("admin-login-btn").addEventListener("click", showAdminLogin);
+            
+            // Admin login
+            document.getElementById("login-form").addEventListener("submit", handleLogin);
+            document.getElementById("cancel-login").addEventListener("click", hideAdminLogin);
+            document.getElementById("login-password").addEventListener("input", function() {
+                updatePasswordStrength(this.value);
+                if (appData.isFirstTimeSetup) {
+                    const confirmField = document.getElementById("confirm-password-field");
+                    if (this.value.length > 0) {
+                        confirmField.classList.remove("hidden");
+                    } else {
+                        confirmField.classList.add("hidden");
+                    }
+                }
+            });
+            
+            // Admin dashboard navigation
+            document.addEventListener("click", function(event) {
+                // Navigation menu
+                if (event.target.closest("[data-nav]")) {
+                    event.preventDefault();
+                    const navId = event.target.closest("[data-nav]").dataset.nav;
+                    handleNavigation(navId);
+                }
+                
+                // View worker button
+                if (event.target.closest(".view-worker-btn")) {
+                    event.preventDefault();
+                    const workerId = parseInt(event.target.closest(".view-worker-btn").dataset.id);
+                    showWorkerDetails(workerId);
+                }
+                
+                // Edit worker button
+                if (event.target.closest(".edit-worker-btn")) {
+                    event.preventDefault();
+                    const workerId = parseInt(event.target.closest(".edit-worker-btn").dataset.id);
+                    const worker = appData.workers.find(w => w.id === workerId);
+                    if (worker) showAddWorkerModal(worker);
+                }
+            });
+            
+            // Back to dashboard
+            document.getElementById("back-to-dashboard").addEventListener("click", function() {
+                document.getElementById("dashboard-view").classList.remove("hidden");
+                document.getElementById("worker-details-view").classList.add("hidden");
+                document.getElementById("page-title").textContent = "Dashboard";
+                document.getElementById("page-subtitle").textContent = "Overview of workers and attendance";
+            });
+            
+            // Quick action buttons
+            document.getElementById("add-worker-btn").addEventListener("click", () => showAddWorkerModal());
+            document.getElementById("view-attendance-btn").addEventListener("click", () => handleNavigation("attendance"));
+            document.getElementById("manage-leaves-btn").addEventListener("click", () => handleNavigation("leaves"));
+            document.getElementById("generate-report-btn").addEventListener("click", generateReport);
+            
+            // Worker modal
+            document.getElementById("close-modal").addEventListener("click", hideWorkerModal);
+            document.getElementById("cancel-modal").addEventListener("click", hideWorkerModal);
+            document.getElementById("worker-form").addEventListener("submit", handleWorkerFormSubmit);
+            document.getElementById("capture-face-btn").addEventListener("click", simulateFaceCapture);
+            
+            // Search and filter
+            document.getElementById("search-workers").addEventListener("input", renderWorkersList);
+            document.getElementById("filter-department").addEventListener("change", renderWorkersList);
+            
+            // Pagination
+            document.getElementById("prev-page").addEventListener("click", () => {
+                if (appData.currentPage > 1) {
+                    appData.currentPage--;
+                    renderWorkersList();
+                }
+            });
+            
+            document.getElementById("next-page").addEventListener("click", () => {
+                const filteredWorkers = filterWorkers();
+                if (appData.currentPage * appData.itemsPerPage < filteredWorkers.length) {
+                    appData.currentPage++;
+                    renderWorkersList();
+                }
+            });
+            
+            // Logout
+            document.getElementById("logout-btn").addEventListener("click", handleLogout);
+            
+            // Edit worker in details view
+            document.getElementById("edit-worker-btn").addEventListener("click", function() {
+                if (appData.currentWorkerDetail) {
+                    showAddWorkerModal(appData.currentWorkerDetail);
+                }
+            });
+            
+            // Add face in details view
+            document.getElementById("add-face-btn").addEventListener("click", simulateFaceCapture);
+            
+            // Request leave
+            document.getElementById("request-leave-btn").addEventListener("click", function() {
+                alert("Leave request feature would open a form here. This is a demo.");
+            });
+            
+            // Export attendance
+            document.getElementById("export-attendance").addEventListener("click", function() {
+                alert("Attendance data would be exported as CSV. This is a demo.");
+            });
+        }
+
+        function simulateCheckIn() {
+            const resultMessage = document.getElementById("result-message");
+            const randomWorker = appData.workers[Math.floor(Math.random() * Math.min(5, appData.workers.length))];
+            
+            resultMessage.innerHTML = `
+                <i class="fas fa-check-circle text-3xl mb-2 text-success"></i>
+                <h3 class="text-xl font-bold mb-2 text-white">Check-In Successful!</h3>
+                <p class="text-sm text-white/90">${randomWorker.fullName}</p>
+                <p class="text-xs text-white/70 mt-1">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+            `;
+            resultMessage.className = "p-4 rounded-lg mb-4 text-center bg-success/20 border border-success/30";
+            resultMessage.classList.remove("hidden");
+            
+            // Add to recent activity
+            const newActivity = {
+                id: appData.recentActivity.length + 1,
+                workerId: randomWorker.id,
+                workerName: randomWorker.fullName,
+                type: "check-in",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: "success"
+            };
+            appData.recentActivity.unshift(newActivity);
+            if (appData.recentActivity.length > 5) appData.recentActivity.pop();
+            
+            // Update worker's last check-in
+            randomWorker.lastCheckIn = new Date().toISOString();
+            
+            // Update dashboard if visible
+            if (appData.currentView === "admin") {
+                updateDashboardStats();
+                renderRecentActivityList();
+                renderWorkersList();
+            }
+            
+            // Hide message after 3 seconds
+            setTimeout(() => {
+                resultMessage.classList.add("hidden");
+            }, 3000);
+        }
+
+        function simulateCheckOut() {
+            const resultMessage = document.getElementById("result-message");
+            const randomWorker = appData.workers[Math.floor(Math.random() * Math.min(5, appData.workers.length))];
+            
+            resultMessage.innerHTML = `
+                <i class="fas fa-check-circle text-3xl mb-2 text-accent"></i>
+                <h3 class="text-xl font-bold mb-2 text-white">Check-Out Successful!</h3>
+                <p class="text-sm text-white/90">${randomWorker.fullName}</p>
+                <p class="text-xs text-white/70 mt-1">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+            `;
+            resultMessage.className = "p-4 rounded-lg mb-4 text-center bg-accent/20 border border-accent/30";
+            resultMessage.classList.remove("hidden");
+            
+            // Add to recent activity
+            const newActivity = {
+                id: appData.recentActivity.length + 1,
+                workerId: randomWorker.id,
+                workerName: randomWorker.fullName,
+                type: "check-out",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: "success"
+            };
+            appData.recentActivity.unshift(newActivity);
+            if (appData.recentActivity.length > 5) appData.recentActivity.pop();
+            
+            // Update dashboard if visible
+            if (appData.currentView === "admin") {
+                updateDashboardStats();
+                renderRecentActivityList();
+            }
+            
+            // Hide message after 3 seconds
+            setTimeout(() => {
+                resultMessage.classList.add("hidden");
+            }, 3000);
+        }
+
+        function showAdminLogin() {
+            const modal = document.getElementById("admin-login-modal");
+            const title = document.getElementById("login-title");
+            const subtitle = document.getElementById("login-subtitle");
+            const firstTimeSetup = document.getElementById("first-time-setup");
+            const confirmField = document.getElementById("confirm-password-field");
+            const submitBtn = document.getElementById("login-submit-btn");
+            const usernameHint = document.getElementById("username-hint");
+            
+            if (appData.isFirstTimeSetup) {
+                title.textContent = "Create Admin Account";
+                subtitle.textContent = "Set up your administrator account";
+                firstTimeSetup.classList.remove("hidden");
+                confirmField.classList.remove("hidden");
+                submitBtn.textContent = "Create Account";
+                usernameHint.textContent = "Minimum 3 characters";
+            } else {
+                title.textContent = "Admin Login";
+                subtitle.textContent = "Enter your credentials to access the admin panel";
+                firstTimeSetup.classList.add("hidden");
+                confirmField.classList.add("hidden");
+                submitBtn.textContent = "Login";
+                usernameHint.textContent = "Enter your username";
+            }
+            
+            // Clear form
+            document.getElementById("login-form").reset();
+            document.getElementById("login-error").classList.add("hidden");
+            updatePasswordStrength("");
+            
+            modal.classList.remove("hidden");
+        }
+
+        function hideAdminLogin() {
+            document.getElementById("admin-login-modal").classList.add("hidden");
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById("login-username").value.trim();
+            const password = document.getElementById("login-password").value;
+            const confirmPassword = document.getElementById("login-confirm-password")?.value;
+            const errorDiv = document.getElementById("login-error");
+            const errorMessage = document.getElementById("error-message");
+            
+            // Validation
+            if (appData.isFirstTimeSetup) {
+                if (username.length < 3) {
+                    errorMessage.textContent = "Username must be at least 3 characters";
+                    errorDiv.classList.remove("hidden");
+                    errorDiv.classList.add("login-error");
+                    return;
+                }
+                
+                if (password.length < 6) {
+                    errorMessage.textContent = "Password must be at least 6 characters";
+                    errorDiv.classList.remove("hidden");
+                    errorDiv.classList.add("login-error");
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    errorMessage.textContent = "Passwords do not match";
+                    errorDiv.classList.remove("hidden");
+                    errorDiv.classList.add("login-error");
+                    return;
+                }
+            }
+            
+            const result = verifyAdminCredentials(username, password);
+            
+            if (result.success) {
+                // Successful login
+                hideAdminLogin();
+                
+                // Switch to admin dashboard
+                document.getElementById("kiosk-interface").classList.add("hidden");
+                document.getElementById("admin-dashboard").classList.remove("hidden");
+                appData.currentView = "admin";
+                
+                // Update admin info
+                if (appData.adminUser) {
+                    document.getElementById("admin-initial").textContent = appData.adminUser.name.charAt(0).toUpperCase();
+                    document.getElementById("admin-name").textContent = appData.adminUser.name;
+                }
+                
+                // Show welcome message
+                if (appData.isFirstTimeSetup) {
+                    setTimeout(() => {
+                        alert("Welcome to Laberion Worker Management System! Your admin account has been created successfully.");
+                    }, 500);
+                }
+            } else {
+                // Failed login
+                errorMessage.textContent = result.message;
+                errorDiv.classList.remove("hidden");
+                errorDiv.classList.add("login-error");
+            }
+        }
+
+        function handleLogout() {
+            if (confirm("Are you sure you want to logout?")) {
+                appData.currentView = "kiosk";
+                document.getElementById("admin-dashboard").classList.add("hidden");
+                document.getElementById("kiosk-interface").classList.remove("hidden");
+                
+                // Reset to dashboard view
+                document.getElementById("dashboard-view").classList.remove("hidden");
+                document.getElementById("worker-details-view").classList.add("hidden");
+                document.getElementById("page-title").textContent = "Dashboard";
+                document.getElementById("page-subtitle").textContent = "Overview of workers and attendance";
+            }
+        }
+
+        function handleNavigation(navId) {
+            // Update active navigation item
+            appData.navigationItems.forEach(item => {
+                item.active = item.id === navId;
+            });
+            document.getElementById("nav-menu").innerHTML = renderNavigationItems(appData.navigationItems);
+            
+            // Update page title
+            const pageTitles = {
+                "dashboard": "Dashboard",
+                "workers": "Workers",
+                "attendance": "Attendance",
+                "shifts": "Shift Schedule",
+                "leaves": "Leave Management",
+                "reports": "Reports",
+                "devices": "Devices",
+                "settings": "Settings"
+            };
+            
+            const pageSubtitles = {
+                "dashboard": "Overview of workers and attendance",
+                "workers": "Manage all workers and their profiles",
+                "attendance": "View and manage attendance records",
+                "shifts": "Schedule and manage work shifts",
+                "leaves": "Approve and manage leave requests",
+                "reports": "Generate and view reports",
+                "devices": "Manage tablet devices",
+                "settings": "System configuration and settings"
+            };
+            
+            document.getElementById("page-title").textContent = pageTitles[navId] || "Dashboard";
+            document.getElementById("page-subtitle").textContent = pageSubtitles[navId] || "Overview";
+            
+            // Show appropriate view
+            if (navId === "dashboard") {
+                document.getElementById("dashboard-view").classList.remove("hidden");
+                document.getElementById("worker-details-view").classList.add("hidden");
+            } else {
+                // For other pages, show a placeholder
+                document.getElementById("dashboard-view").classList.add("hidden");
+                document.getElementById("worker-details-view").classList.add("hidden");
+                alert(`"${pageTitles[navId]}" page would be displayed here. This is a demo.`);
+            }
+        }
+
+        function hideWorkerModal() {
+            document.getElementById("worker-modal").classList.add("hidden");
+        }
+
+        function handleWorkerFormSubmit(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const mode = form.dataset.mode;
+            const workerId = form.dataset.workerId ? parseInt(form.dataset.workerId) : null;
+            
+            const workerData = {
+                fullName: document.getElementById("input-name").value,
+                employeeCode: document.getElementById("input-code").value,
+                email: document.getElementById("input-email").value || null,
+                phone: document.getElementById("input-phone").value || null,
+                department: document.getElementById("input-department").value,
+                position: document.getElementById("input-position").value,
+                status: document.querySelector("input[name='status']:checked").value,
+                joinedDate: new Date().toISOString().split("T")[0],
+                photo: `https://picsum.photos/200?random=${appData.workers.length + 100}`,
+                faceEnrolled: false,
+                lastCheckIn: null
+            };
+            
+            if (mode === "edit" && workerId) {
+                // Update existing worker
+                const index = appData.workers.findIndex(w => w.id === workerId);
+                if (index !== -1) {
+                    // Preserve some existing data
+                    workerData.id = workerId;
+                    workerData.joinedDate = appData.workers[index].joinedDate;
+                    workerData.photo = appData.workers[index].photo;
+                    workerData.faceEnrolled = appData.workers[index].faceEnrolled;
+                    workerData.lastCheckIn = appData.workers[index].lastCheckIn;
+                    
+                    appData.workers[index] = workerData;
+                    
+                    // Update current worker detail if viewing
+                    if (appData.currentWorkerDetail && appData.currentWorkerDetail.id === workerId) {
+                        appData.currentWorkerDetail = workerData;
+                        showWorkerDetails(workerId);
+                    }
+                }
+            } else {
+                // Add new worker
+                workerData.id = appData.workers.length > 0 ? Math.max(...appData.workers.map(w => w.id)) + 1 : 1;
+                appData.workers.push(workerData);
+            }
+            
+            // Update UI
+            updateDashboardStats();
+            renderWorkersList();
+            
+            // Show success message
+            alert(mode === "edit" ? "Worker updated successfully!" : "Worker added successfully!");
+            
+            // Close modal
+            hideWorkerModal();
+        }
+
+        function simulateFaceCapture() {
+            const preview = document.getElementById("face-preview");
+            preview.innerHTML = "";
+            
+            // Simulate capturing 3 face images
+            for (let i = 1; i <= 3; i++) {
+                setTimeout(() => {
+                    const imgUrl = `https://picsum.photos/150?random=${Math.floor(Math.random() * 1000)}`;
+                    const imgElement = document.createElement("div");
+                    imgElement.className = "relative";
+                    imgElement.innerHTML = `
+                        <img src="${imgUrl}" alt="Face capture ${i}" class="w-full h-32 object-cover rounded-lg">
+                        <div class="absolute top-2 right-2 w-6 h-6 bg-success rounded-full flex items-center justify-center">
+                            <i class="fas fa-check text-white text-xs"></i>
+                        </div>
+                    `;
+                    preview.appendChild(imgElement);
+                    
+                    if (i === 3) {
+                        preview.classList.remove("hidden");
+                        setTimeout(() => {
+                            alert("Face enrollment completed successfully! 3 images captured for better recognition.");
+                        }, 500);
+                    }
+                }, i * 500);
+            }
+        }
+
+        function generateReport() {
+            alert("Report generation feature would create a PDF/Excel report. This is a demo.");
+        }
+
+        // Initialize the application
+        document.addEventListener("DOMContentLoaded", initApp);
+    </script>
+</body>
+</html>
