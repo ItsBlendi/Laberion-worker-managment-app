@@ -1,0 +1,2116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Management - Laberion</title>
+    <meta name="description" content="Track worker attendance, check-ins, and generate reports for Laberion fruit juice company">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#2c5f2d",
+                        secondary: "#f5a623",
+                        accent: "#4a90e2",
+                        danger: "#e74c3c",
+                        success: "#27ae60",
+                        warning: "#f39c12",
+                        laberion: {
+                            green: "#2c5f2d",
+                            orange: "#f5a623",
+                            light: "#f8f9fa",
+                            dark: "#1a1a1a"
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        heading: ['Montserrat', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        
+        .table-row-hover:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .attendance-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+        }
+        
+        .filter-active {
+            background-color: #2c5f2d;
+            color: white;
+        }
+        
+        .pagination-active {
+            background-color: #2c5f2d;
+            color: white;
+            border-color: #2c5f2d;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2c5f2d;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
+        }
+        
+        .empty-state:hover {
+            opacity: 0.8;
+        }
+        
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .calendar-day:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .calendar-day.active {
+            background-color: #2c5f2d;
+            color: white;
+        }
+        
+        .calendar-day.today {
+            border: 2px solid #f5a623;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: :
+        }
+        
+        .chart-bar {
+            background-color: #4a90e2;
+            border-radius: 4px;
+            transition: height 0.3s ease;
+        }
+        
+        .chart-bar:hover {
+            background-color: #2c5f2d;
+        }
+        
+        .time-line {
+            position: absolute;
+            height: 2px;
+            background-color: #f5a623;
+            width: 100%;
+            opacity: 0.8;
+        }
+        
+        .check-in-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .check-in-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px -1px rgba(0, 0, 0, 0.15);
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        
+        .worker-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .bounce-in {
+            animation: bounceIn 0.6s ease;
+        }
+        
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(74, 144, 226, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(74, 144, 226, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(74, 144, 226, 0); }
+        }
+        
+        .shadow-pop {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s ease;
+        }
+        
+        .shadow-pop:hover {
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #2c5f2d 0%, #4a90e2 100%);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Main Container -->
+    <div id="app" class="min-h-screen">
+        <!-- Sidebar -->
+        <div class="sidebar fixed left-0 top-0 h-full w-64 bg-laberion-dark text-white flex flex-col">
+            <div class="p-6 border-b border-white/10">
+                <div class="flex items-center">
+                    <i class="fas fa-apple-alt text-laberion-orange text-2xl mr-3"></i>
+                    <h1 class="text-xl font-heading font-bold">Laberion Admin</h1>
+                </div>
+                <p class="text-white/60 text-sm mt-1">Attendance Management System</p>
+            </div>
+            
+            <nav class="flex-1 p-4">
+                <ul id="nav-menu" class="space-y-2"></ul>
+            </nav>
+            
+            <div class="p-4 border-t border-white/10">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-laberion-orange flex items-center justify-center mr-3">
+                        <span class="font-bold" id="admin-initial">A</span>
+                    </div>
+                    <div>
+                        <p class="font-medium" id="admin-name">Admin User</p>
+                        <p class="text-white/60 text-sm">Administrator</p>
+                    </div>
+                </div>
+                <button id="logout-btn" class="mt-4 w-full text-left text-white/70 hover:text-white py-2 px-3 rounded transition duration-200">
+                    <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="ml-64 min-h-screen">
+            <!-- Top Bar -->
+            <header class="bg-white border-b border-gray-200 px-6 py-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-heading font-bold text-gray-800">Attendance Management</h2>
+                        <p class="text-gray-600 text-sm">Track worker attendance, check-ins, and generate reports</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <i class="fas fa-bell text-gray-500 text-xl cursor-pointer hover:text-laberion-orange transition duration-200"></i>
+                            <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">5</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-600" id="current-date">Loading...</p>
+                            <p class="text-xs text-gray-500" id="current-time">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Main Content Area -->
+            <main class="p-6">
+                <!-- Page Header with Actions -->
+                <div class="mb-8">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">Attendance Dashboard</h3>
+                            <p class="text-gray-600 text-sm">Real-time tracking of worker attendance</p>
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <button id="manual-checkin-btn" class="px-4 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200 flex items-center">
+                                <i class="fas fa-user-check mr-2"></i> Manual Check-In
+                            </button>
+                            <button id="generate-report-btn" class="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition duration-200 flex items-center">
+                                <i class="fas fa-file-export mr-2"></i> Generate Report
+                            </button>
+                            <button id="configure-devices-btn" class="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition duration-200 flex items-center">
+                                <i class="fas fa-tablet-alt mr-2"></i> Configure Devices
+                            </button>
+                            <button id="sync-attendance-btn" class="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition duration-200 flex items-center">
+                                <i class="fas fa-sync-alt mr-2"></i> Sync Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Today's Attendance</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stats-present">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                                <i class="fas fa-user-check text-success text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-success text-sm mt-2"><i class="fas fa-arrow-up mr-1"></i> <span id="stats-total-today">0</span> workers today</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Absent Today</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stats-absent">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center">
+                                <i class="fas fa-user-times text-danger text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-2"><span id="stats-leave-today">0</span> on leave</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Weekly Attendance</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stats-weekly">0%</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                                <i class="fas fa-chart-line text-accent text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-2">This week</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Late Arrivals</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stats-late">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center">
+                                <i class="fas fa-clock text-warning text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-warning text-sm mt-2"><i class="fas fa-exclamation-circle mr-1"></i> <span id="stats-late-today">0</span> today</p>
+                    </div>
+                </div>
+                
+                <!-- Live Check-In Feed -->
+                <div class="mb-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-800">Live Check-In Feed</h4>
+                                <p class="text-gray-600 text-sm">Real-time worker check-ins</p>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-sm text-gray-600 mr-3">Status:</span>
+                                <div class="flex items-center">
+                                    <span class="status-dot bg-success mr-2"></span>
+                                    <span class="text-sm">Active</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Current Check-Ins -->
+                            <div class="lg:col-span-2">
+                                <div class="mb-4">
+                                    <h5 class="font-medium text-gray-700 mb-2">Recent Check-Ins</h5>
+                                    <p class="text-gray-600 text-sm">Last 30 minutes</p>
+                                </div>
+                                <div id="live-checkins" class="space-y-4">
+                                    <!-- Check-in cards will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        
+                            <!-- Attendance Chart -->
+                            <div>
+                                <div class="mb-4">
+                                    <h5 class="font-medium text-gray-700 mb-2">Today's Timeline</h5>
+                                    <p class="text-gray-600 text-sm">Check-in distribution</p>
+                                </div>
+                                <div class="chart-container bg-gray-50 p-4 rounded-lg">
+                                    <div id="timeline-chart" class="relative h-64">
+                                        <!-- Chart will be populated by JavaScript -->
+                                    </div>
+                                    <div class="flex justify-between mt-4">
+                                        <span class="text-sm text-gray-600">Morning Shift</span>
+                                        <span class="text-sm text-gray-600">Afternoon Shift</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Filters and Calendar -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <!-- Filters -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Attendance Filters</h4>
+                            <div class="flex flex-col lg:flex-row gap-4">
+                                <!-- Date Range -->
+                                <div class="flex-1">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                                    <div class="flex gap-3">
+                                        <input type="date" id="filter-start-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <input type="date" id="filter-end-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                    </div>
+                                </div>
+                                
+                                <!-- Department -->
+                                <div class="flex-1">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                    <select id="filter-department" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="">All Departments</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Status -->
+                                <div class="flex-1">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Attendance Status</label>
+                                    <select id="filter-status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="">All Status</option>
+                                        <option value="present">Present</option>
+                                        <option value="absent">Absent</option>
+                                        <option value="late">Late</option>
+                                        <option value="early-leave">Early Leave</option>
+                                        <option value="leave">On Leave</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex justify-end mt-4 space-x-3">
+                                <button id="apply-filters" class="px-4 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg">
+                                    Apply Filters
+                                </button>
+                                <button id="clear-filters" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                    Clear Filters
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Calendar -->
+                    <div>
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Attendance Calendar</h4>
+                            <div id="attendance-calendar">
+                                <!-- Calendar will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Attendance Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <!-- Table Header -->
+                    <div class="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h3 class="font-heading font-bold text-gray-800">Attendance Records</h3>
+                            <p class="text-gray-600 text-sm" id="table-summary">Showing 0 records</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center">
+                                <span class="text-sm text-gray-600 mr-2">Export:</span>
+                                <button id="export-table" class="px-3 py-1 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                    <i class="fas fa-download mr-1"></i> CSV
+                                </button>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-sm text-gray-600 mr-2">Per page:</span>
+                                <select id="items-per-page" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Table Content -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Worker</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Code</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-In Time</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-Out Time</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours Worked</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-table-body" class="divide-y divide-gray-200">
+                                <!-- Data will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Loading State -->
+                    <div id="loading-state" class="hidden p-12">
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="loading-spinner mb-4"></div>
+                            <p class="text-gray-600">Loading attendance records...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div id="empty-state" class="hidden p-12">
+                        <div class="text-center empty-state">
+                            <i class="fas fa-calendar-times text-5xl text-gray-300 mb-4"></i>
+                            <h3 class="text-xl font-semibold text-gray-500 mb-2">No attendance records found</h3>
+                            <p class="text-gray-400 mb-6">Try adjusting your filters or check date range</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Table Footer -->
+                    <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="text-sm text-gray-600">
+                            <span id="total-count">0</span> records found
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="text-sm text-gray-600">
+                                Page <span id="current-page">1</span> of <span id="total-pages">1</span>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="first-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">
+                                    <i class="fas fa-angle-left"></i>
+                                </button>
+                                <div class="flex space-x-1" id="page-numbers"></div>
+                                <button id="next-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">
+                                    <i class="fas fa-angle-right"></i>
+                                </button>
+                                <button id="last-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Detailed Analytics -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                    <!-- Attendance Trends -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-6">Attendance Trends</h4>
+                        <div id="trend-chart" class="h-64">
+                            <!-- Chart will be populated by JavaScript -->
+                        </div>
+                        <div class="flex justify-between mt-4">
+                            <span class="text-sm text-gray-600">Week 1</span>
+                            <span class="text-sm text-gray-600">Week 2</span>
+                            <span class="text-sm text-gray-600">Week 3</span>
+                            <span class="text-sm text-gray-600">Week 4</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Department Comparison -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-6">Department Comparison</h4>
+                        <div id="department-chart" class="h-64">
+                            <!-- Chart will be populated by JavaScript -->
+                        </div>
+                        <div class="mt-4">
+                            <p class="text-sm text-gray-600">Average attendance rate per department</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        
+        <!-- Manual Check-In Modal -->
+        <div id="checkin-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-xl font-heading font-bold">Manual Check-In</h3>
+                    <button id="close-checkin-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <form id="checkin-form" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Select Worker</label>
+                            <select id="checkin-worker" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                <!-- Workers will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Check-In Time</label>
+                                <input type="datetime-local" id="checkin-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Check-Out Time</label>
+                                <input type="datetime-local" id="checkout-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select id="checkin-status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                <option value="present">Present</option>
+                                <option value="late">Late</option>
+                                <option value="early-leave">Early Leave</option>
+                                <option value="absent">Absent</option>
+                                <option value="leave">On Leave</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                            <textarea id="checkin-notes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Reason for manual check-in or special circumstances..."></textarea>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                            <button type="button" id="cancel-checkin" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200">
+                                Cancel
+                            </button>
+                            <button type="submit" id="save-checkin" class="px-6 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200">
+                                Save Check-In
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Edit Attendance Modal -->
+        <div id="edit-attendance-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-xl font-heading font-bold">Edit Attendance Record</h3>
+                    <button id="close-edit-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <form id="edit-attendance-form" class="space-y-6">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Check-In Time</label>
+                                <input type="datetime-local" id="edit-checkin-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Check-Out Time</label>
+                                <input type="datetime-local" id="edit-checkout-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select id="edit-status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                <option value="present">Present</option>
+                                <option value="late">Late</option>
+                                <option value="early-leave">Early Leave</option>
+                                <option value="absent">Absent</option>
+                                <option value="leave">On Leave</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                            <textarea id="edit-notes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Adjustment reason or explanation..."></textarea>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                            <button type="button" id="cancel-edit" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200">
+                                Cancel
+                            </button>
+                            <button type="submit" id="save-edit" class="px-6 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200">
+                                Update Record
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Report Generation Modal -->
+        <div id="report-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-xl font-heading font-bold">Generate Report</h3>
+                    <button id="close-report-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <form id="report-form" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+                            <select id="report-type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                <option value="daily">Daily Attendance Report</option>
+                                <option value="weekly">Weekly Summary Report</option>
+                                <option value="monthly">Monthly Analysis Report</option>
+                                <option value="department">Department Performance Report</option>
+                                <option value="worker">Individual Worker Report</option>
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                                <input type="date" id="report-start-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                                <input type="date" id="report-end-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Department Filter</label>
+                            <select id="report-department" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                <option value="">All Departments</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Format</label>
+                            <div class="flex space-x-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="format" value="pdf" checked class="mr-2">
+                                    PDF Document
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="format" value="excel" class="mr-2">
+                                    Excel Spreadsheet
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="format" value="csv" class="mr-2">
+                                    CSV File
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                            <button type="button" id="cancel-report"1 class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200">
+                                Cancel
+                            </button>
+                            <button type="submit" id="generate-report" class="px-6 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200">
+                                Generate Report
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Layer
+        const appData = {
+            currentPage: 1,
+            itemsPerPage: 10,
+            departments: [
+                { "id": "production", "name": "Production" },
+                { "id": "packaging", "name": "Packaging" },
+                { "id": "quality", "name": "Quality Control" },
+                { "id": "logistics", "name": "Logistics" },
+                { "id": "maintenance", "name": "Maintenance" },
+                { "id": "administration", "name": "Administration" },
+                { "id": "hr", "name": "Human Resources" },
+                { "id": "finance", "name": "Finance" },
+                { "id": "sales", "name": "Sales & Marketing" },
+                { "id": "rnd", "name": "Research & Development" }
+            ],
+            navigationItems: [
+                { "id": "dashboard", "label": "Dashboard", "icon": "fas fa-tachometer-alt" },
+                { "id": "workers", "label": "Workers", "icon": "fas fa-users" },
+                { "id": "attendance", "label": "Attendance", "icon": "fas fa-calendar-check", "active": true },
+                { "id": "shifts", "label": "Shifts", "icon": "fas fa-clock" },
+                { "id": "leaves", "label": "Leaves", "2": "fas fa-umbrella-beach" },
+                { "id": "reports", "label": "Reports", "icon": "fas fa-chart-bar" },
+                { "id": "devices", "label": "Devices", "icon": "fas fa-tablet-alt" },
+                { "id": "settings", "label": "Settings", "icon": "fas fa-cog" }
+            ],
+            workers: [
+                {
+                    "id": 1,
+                    "fullName": "Artan Berisha",
+                    "employeeCode": "LAB-001",
+                    "department": "production",
+                    "position": "Production Supervisor",
+                    "photo": "https://picsum.photos/200?random=101"
+                },
+                {
+                    "id": 2,
+                    "fullName": "Lirije Gashi",
+                    "employeeCode": "LAB-002",
+                    "department": "quality",
+                    "position": "Quality Inspector",
+                    "photo": "https://picsum.photos/200?random=102"
+                },
+                {
+                    "id": 3,
+                    "fullName": "Bekim Krasniqi",
+                    "employeeCode": "LAB-003",
+                    "department": "packaging",
+                    "position": "Packaging Operator",
+                    "photo": "https://picsum.photos/200?random=103"
+                },
+                {
+                    "id": 4,
+                    "fullName": "Valmira Shala",
+                    "employeeCode": "LAB-004",
+                    "department": "logistics",
+                    "position": "Logistics Coordinator",
+                    "photo": "https://picsum.photos/200?random=104"
+                },
+                {
+                    "id": 5,
+                    "fullName": "Driton Morina",
+                    "employeeCode": "LAB-005",
+                    "department": "maintenance",
+                    "position": "Maintenance Technician",
+                    "photo": "https://picsum.photos/200?random=105"
+                },
+                {
+                    "id": 6,
+                    "fullName": "Arta Rexhepi",
+                    "employeeCode": "LAB-006",
+                    "department": "administration",
+                    "position": "HR Administrator",
+                    "photo": "https://picsum.photos/200?random=106"
+                },
+                {
+                    "id": 7,
+                    "fullName": "Fisnik Aliu",
+                    "employeeCode": "LAB-007",
+                    "department": "production",
+                    "position": "Juice Production Specialist",
+                    "photo": "https://picsum.photos/200?random=107"
+                },
+                {
+                    "id": 8,
+                    "fullName": "Blerta Hoxha",
+                    "employeeCode": "LAB-008",
+                    "department": "quality",
+                    "position": "Lab Technician",
+                    "photo": "https://picsum.photos/200?random=108"
+                },
+                {
+                    "id": 9,
+                    "fullName": "Kushtrim Thaçi",
+                    "employeeCode": "LAB-009",
+                    "department": "packaging",
+                    "position": "Packaging Supervisor",
+                    "photo": "https://picsum.photos/200?random=109"
+                },
+                {
+                    "id": 10,
+                    "fullName": "Elona Bajrami",
+                    "employeeCode": "LAB-010",
+                    "department": "logistics",
+                    "position": "Warehouse Manager",
+                    "photo": "https://picsum.photos/200?random=110"
+                },
+                {
+                    "id": 11,
+                    "fullName": "Genc Demaku",
+                    "employeeCode": "LAB-011",
+                    "department": "maintenance",
+                    "position": "Equipment Technician",
+                    "photo": "https://picsum.photos/200?random=111"
+                },
+                {
+                    "id": 12,
+                    "fullName": "Donika Berisha",
+                    "employeeCode": "LAB-012",
+                    "department": "sales",
+                    "position": "Sales Representative",
+                    "photo": "https://picsum.photos/200?random=112"
+                },
+                {
+                    "id": 13,
+                    "fullName": "Arben Krasniqi",
+                    "employeeCode": "LAB-013",
+                    "department": "production",
+                    "position": "Production Line Manager",
+                    "photo": "https://picsum.photos/200?random=113"
+                },
+                {
+                    "id": 14,
+                    "fullName": "Lumturije Morina",
+                    "employeeCode": "LAB-014",
+                    "department": "hr",
+                    "position": "Recruitment Specialist",
+                    "photo": "https://picsum.photos/200?random=114"
+                },
+                {
+                    "id": 15,
+                    "fullName": "Flamur Gashi",
+                    "employeeCode": "LAB-015",
+                    "department": "rnd",
+                    "position": "Product Developer",
+                    "photo": "https://picsum.photos/200?random=115"
+                }
+            ],
+            attendanceRecords: [
+                {
+                    "id": 1,
+                    "workerId": 1,
+                    "date": "2024-01-15",
+                    "checkInTime": "08:05:00",
+                    "checkOutTime": "16:05:00",
+                    "status": "present",
+                    "hoursWorked": 8,
+                    "notes": "",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 08:05:00"
+                },
+                {
+                    "id": 2,
+                    "workerId": 2,
+                    "date": "2024-01-15",
+                    "checkInTime": "08:15:00",
+                    "checkOutTime": "16:10:00",
+                    "status": "present",
+                    "hoursWorked": 7.9,
+                    "notes": "",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 08:15:00"
+                },
+                {
+                    "id": 3,
+                    "workerId": 3,
+                    "date": "2024-01-15",
+                    "checkInTime": "16:20:00",
+                    "checkOutTime": "00:20:00",
+                    "status": "present",
+                    "hoursWorked": 8,
+                    "notes": "Afternoon shift",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 16:20:00"
+                },
+                {
+                    "id": 4,
+                    "workerId": 4,
+                    "date": "2024-01-15",
+                    "checkInTime": "08:10:00",
+                    "checkOutTime": "16:30:00",
+                    "status": "present",
+                    "hoursWorked": 8.3,
+                    "notes": "",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 08:10:00"
+                },
+                {
+                    "id": 5,
+                    "workerId": 5,
+                    "date": "2024-01-15",
+                    "checkInTime": "00:25:00",
+                    "checkOutTime": "08:25:00",
+                    "status": "present",
+                    "hoursWorked": 8,
+                    "notes": "Night shift",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 00:25:00"
+                },
+                {
+                    "id": 6,
+                    "workerId": 6,
+                    "date": "2024-01-15",
+                    "checkInTime": "08:30:00",
+                    "checkOutTime": "16:45:00",
+                    "status": "present",
+                    "hoursWorked": 8.25,
+                    "notes": "",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 08:30:00"
+                },
+                {
+                    "id": 7,
+                    "workerId": 7,
+                    "date": "2024-01-15",
+                    "checkInTime": "08:00:00",
+                    "checkOutTime": "16:00:00",
+                    "status": "present",
+                    "hoursWorked": 8,
+                    "notes": "",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 08:00:00"
+                },
+                {
+                    "id": 8,
+                    "workerId": 8,
+                    "date": "2024-01-15",
+                    "checkInTime": null,
+                    "checkOutTime": null,
+                    "status": "leave",
+                    "hoursWorked": 0,
+                    "notes": "Maternity leave",
+                    "isLive": false,
+                    "timestamp": null
+                },
+                {
+                    "id": 9,
+                    "workerId1": 9,
+                    "date": "2024-01-15",
+                    "checkInTime": "16:18:00",
+                    "checkOutTime": "00:20:00",
+                    "status": "present",
+                    "hoursWorked": 8,
+                    "notes": "",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 16:18:00"
+                },
+                {
+                    "id": 10,
+                    "workerId": 10,
+                    "date": "2024-01-15",
+                    "checkInTime": "08:22:00",
+                    "checkOutTime": "16:45:00",
+                    "status": "late",
+                    "hoursWorked": 8.4,
+                    "notes": "Arrived 22 minutes late",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 08:22:00"
+                },
+                {
+                    "id": 11,
+                    "workerId": 11,
+                    "date": "2024-01-15",
+                    "checkInTime": "00:05:00",
+                    "checkOutTime": "07:55:00",
+                    "status": "early-leave",
+                    "hoursWorked": 7.9,
+                    "notes": "Left 5 minutes early",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 00:05:00"
+                },
+                {
+                    "id": 12,
+                    "workerId": 12,
+                    "date": "2024-01-15",
+                    "checkInTime": "09:00:00",
+                    "checkOutTime": "17:00:00",
+                    "status": "late",
+                    "hoursWorked": 8,
+                    "notes": "Field work - flexible hours",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 09:00:00"
+                },
+                {
+                    "id": 13,
+                    "workerId": 13,
+                    "date": "2024-01-15",
+                    "checkInTime": null,
+                    "checkOutTime": null,
+                    "status": "absent",
+                    "hoursWorked": 0,
+                    "notes": "Suspended",
+                    "isLive": false,
+                    "timestamp": null
+                },
+                {
+                    "id": 14,
+                    "workerId": 14,
+                    "date": "2024-01-15",
+                    "checkInTime": "08:45:00",
+                    "checkOutTime": "12:45:00",
+                    "status": "present",
+                    "hoursWorked": 4,
+                    "notes": "Part-time, 3 days/week",
+                    "isLive": true,
+                    "timestamp": "2024-01-15 08:45:00"
+                },
+                {
+                    "id": 15,
+                    "workerId": 15,
+                    "date": "2024-01-15",
+                    "checkInTime": null,
+                    "checkOutTime": null,
+                    "status": "leave",
+                    "hoursWorked": 0,
+                    "notes": "Vacation",
+                    "isLive": false,
+                    "timestamp": null
+                },
+                {
+                    "id": 16,
+                    "workerId": 1,
+                    "date": "2024-01-14",
+                    "checkInTime": "08:03:00",
+                    "checkOutTime": "16:03:00",
+                    "status": "present",
+                    "hoursWorked": 8,
+                    "notes": "",
+                    "isLive": false,
+                    "timestamp": "2024-01-14 08:03:00"
+                },
+                {
+                    "id": 17,
+                    "workerId": 2,
+                    "date": "2024-01-14",
+                    "checkInTime": "08:12:00",
+                    "checkOutTime": "16:08:00",
+                    "status": "present",
+                    "hoursWorked": 7.9,
+                    "notes": "",
+                    "isLive": false,
+                    "timestamp": "2024-01-14 08:12:00"
+                },
+                {
+                    "id": 18,
+                    "workerId": 3,
+                    "date": "2024-01-14",
+                    "checkInTime": "16:22:00",
+                    "checkOutTime": "00:18:00",
+                    "status": "present",
+                    "hoursWorked": 8,
+                    "notes": "",
+                    "isLive": false,
+                    "timestamp": "2024-01-14 16:22:00"
+                },
+                {
+                    "id": 19,
+                    "workerId": 7,
+                    "date": "2024-01-14",
+                    "checkInTime": "08:05:00",
+                    "checkOutTime": "15:55:00",
+                    "status": "early-leave",
+                    "hoursWorked": 7.9,
+                    "notes": "Left early for appointment",
+                    "isLive": false,
+                    "timestamp": "2024-01-14 08:05:00"
+                },
+                {
+                    "id": 20,
+                    "workerId": 10,
+                    "date": "2024-01-14",
+                    "checkInTime": "08:45:00",
+                    "checkOutTime": "16:45:00",
+                    "status": "late",
+                    "hoursWorked": 8,
+                    "notes": "Traffic delay",
+                    "isLive": false,
+                    "timestamp": "2024-01-14 08:45:00"
+                }
+            ],
+            liveCheckIns: [
+                {
+                    "id": 1,
+                    "workerId": 1,
+                    "timestamp": "2024-01-15 08:05:00",
+                    "status": "present",
+                    "type": "face-recognition",
+                    "device": "Gate 1"
+                },
+                {
+                    "id": 2,
+                    "workerId": 2,
+                    "timestamp": "2024-01-15 08:15:00",
+                    "status": "present",
+                    "type": "face-recognition",
+                    "device": "Gate 1"
+                },
+                {
+                    "id": 3,
+                    "workerId": 4,
+                    "timestamp": "2024-01-15 08:10:00",
+                    "status": "present2",
+                    "type": "face-recognition",
+                    "device": "Gate 2"
+                },
+                {
+                    "id": 4,
+                    "workerId": 6,
+                    "timestamp": "2024-01-15 08:30:00",
+                    "status": "present",
+                    "type": "face-recognition",
+                    "device": "Gate 1"
+                },
+                {
+                    "id": 5,
+                    "workerId": 7,
+                    "timestamp": "2024-01-15 08:00:00",
+                    "status": "present",
+                    "type": "face-recognition",
+                    "device": "Gate 2"
+                },
+                {
+                    "id": 6,
+                    "workerId": 10,
+                    "timestamp": "2024-01-15 08:22:00",
+                    "status": "late",
+                    "type": "face-recognition",
+                    "device": "Gate 1"
+                },
+                {
+                    "id": 7,
+                    "workerId": 14,
+                    "timestamp": "2024-01-15 08:45:00",
+                    "status": "present",
+                    "type": "manual",
+                    "device": "Admin override"
+                }
+            ],
+            monthlyTrends: [
+                { "week": 1, "present": 95, "absent": 5, "late": 10 },
+                { "week": 2, "present": 92, "absent": 8, "late": 15 },
+                { "week": 3, "present": 98, "absent": 2, "late": 5 },
+                { "week": 4, "present": 94, "absent": 6, "late": 12 }
+            ],
+            departmentPerformance: [
+                { "department": "Production", "attendance": 96, "lateRate": 8 },
+                { "department": "Packaging", "attendance": 95, "lateRate": 10 },
+                { "department": "Quality Control", "attendance": 98, "lateRate": 5 },
+                { "department": "Logistics", "attendance": 92, "lateRate": 15 },
+                { "department": "Maintenance", "attendance": 94, "lateRate": 12 },
+                { "department": "Administration", "attendance": 97, "lateRate": 6 }
+            ]
+        };
+
+        // Reusable Render Functions
+        function renderNavigationItems(items) {
+            return items.map(item => 
+                "<li><a href=\"#\" data-nav=\"" + item.id + "\" class=\"flex items-center py-3 px-4 rounded-lg transition duration-200 " + (item.active ? "bg-white/10 text-white" : "text-white/70 hover:text-white hover:bg-white/5") + "\"><i class=\"" + item.icon + " mr-3 w-5 text-center\"></i>" + item.label + "</a></li>"
+            ).join("");
+        }
+
+        function renderDepartmentsSelect(selected = "") {
+            return appData.departments.map(dept => 
+                "<option value=\"" + dept.id + "\" " + (dept.id === selected ? "selected" : "") + ">" + dept.name + "</option>"
+            ).join("");
+        }
+
+        function renderWorkersSelect(selected = "") {
+            return appData.workers.map(worker => 
+                "<option value=\"" + worker.id + "\" " + (worker.id === selected ? "selected" : "") + ">" + worker.fullName + " (" + worker.employeeCode + ")</option>"
+            ).join("");
+        }
+
+        function renderLiveCheckIns(checkIns) {
+            return checkIns.map(checkIn => {
+                const worker = appData.workers.find(w => w.id === checkIn.workerId);
+                if (!worker) return "";
+                
+                const time = formatTime(checkIn.timestamp);
+                const statusClass = checkIn.status === "present" ? "bg-success/20 text-success" : 
+                                  checkIn.status === "late" ? "bg-warning/20 text-warning" : 
+                                  "bg-secondary/20 text-secondary";
+                const statusText = checkIn.status.charAt(0).toUpperCase() + checkIn.status.slice(1);
+                const typeIcon = checkIn.type === "face-recognition" ? "fas fa-camera" : "fas fa-keyboard";
+                
+                return "<div class=\"check-in-card bounce-in bg-white border border-gray-200 rounded-lg p-4 shadow-pop\">" +
+                    "<div class=\"flex items-center\">" +
+                        "<img src=\"" + worker.photo + "\" alt=\"" + worker.fullName + "\" class=\"worker-avatar mr-3\">" +
+                        "<div class=\"flex-1\">" +
+                            "<p class=\"font-medium\">" + worker.fullName + "</p>" +
+                            "<p class=\"text-sm text-gray-500\">" + worker.position + "</p>" +
+                        "</div>" +
+                        "<div class=\"text-right\">" +
+                            "<span class=\"attendance-badge " + statusClass + "\">" + statusText + "</span>" +
+                            "<p class=\"text-sm text-gray-600 mt-1\">" + time + "</p>" +
+                        "</div>" +
+                    "</div>" +
+                    "<div class=\"flex justify-between mt-3 pt-3 border-t border-gray-100\">" +
+                        "<div class=\"text-sm text-gray-500\">" +
+                            "<i class=\"" + typeIcon + " mr-1\"></i>" + (checkIn.type === "face-recognition" ? "Face Recognition" : "Manual") +
+                        "</div>" +
+                        "<div class=\"text-sm text-gray-500\">" +
+                            "<i class=\"fas fa-tablet-alt mr-1\"></i>" + checkIn.device +
+                        "</div>" +
+                    "</div>" +
+                "</div>";
+            }).join("");
+        }
+
+        function renderAttendanceTable(records) {
+            if (records.length === 0) {
+                return "<tr><td colspan=\"9\" class=\"py-12 text-center\"><div class=\"empty-state\"><i class=\"fas fa-calendar-times text-4xl text-gray-300 mb-4\"></i><p class=\"text-gray-500\">No attendance records found</p></div></td></tr>";
+            }
+            
+            return records.map(record => {
+                const worker = appData.workers.find(w => w.id === record.workerId);
+                if (!worker) return "";
+                
+                const department = appData.departments.find(d => d.id === worker.department)?.name || worker.department;
+                const statusClass = record.status === "present" ? "bg-success/20 text-success" : 
+                                  record.status === "late" ? "bg-warning/20 text-warning" : 
+                                  record.status === "early-leave" ? "bg-secondary/20 text-secondary" : 
+                                  record.status === "absent" ? "bg-danger/20 text-danger" : 
+                                  "bg-gray-200 text-gray-700";
+                const statusText = record.status.charAt(0).toUpperCase() + record.status.slice(1);
+                const checkInTime = record.checkInTime ? formatTime(record.date + " " + record.checkInTime) : "—";
+                const checkOutTime = record.checkOutTime ? formatTime(record.date + " " + record.checkOutTime) : "—";
+                const hoursWorked = record.hoursWorked > 0 ? record.hoursWorked + "h" : "—";
+                
+                return "<tr class=\"table-row-hover fade-in\">" +
+                    "<td class=\"py-4 px-6\">" + formatDate(record.date) + "</td>" +
+                    "<td class=\"py-4 px-6\"><div class=\"flex items-center\"><img src=\"" + worker.photo + "\" alt=\"" + worker.fullName + "\" class=\"worker-avatar mr-3\"><div><p class=\"font-medium\">" + worker.fullName + "</p><p class=\"text-sm text-gray-500\">" + worker.position + "</p></div></div></td>" +
+                    "<td class=\"py-4 px-6\"><span class=\"font-mono text-sm bg-gray-100 px-2 py-1 rounded\">" + worker.employeeCode + "</span></td>" +
+                    "<td class=\"py-4 px-6\">" + department + "</td>" +
+                    "<td class=\"py-4 px-6\">" + checkInTime + "</td>" +
+                    "<td class=\"py-4 px-6\">" + checkOutTime + "</td>" +
+                    "<td class=\"py-4 px-6\"><span class=\"attendance-badge " + statusClass + "\">" + statusText + "</span></td>" +
+                    "<td class=\"py-4 px-6\">" + hoursWorked + "</td>" +
+                    "<td class=\"py-4 px-6\">" +
+                        "<div class=\"flex space-x-2\">" +
+                            "<button class=\"text-accent hover:text-blue-700 view-record-btn\" data-id=\"" + record.id + "\" title=\"View Details\"><i class=\"fas fa-eye\"></i></button>" +
+                            "<button class=\"text-secondary hover:text-orange-700 edit-record-btn\" data-id=\"" + record.id + "\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>" +
+                            "<button class=\"text-danger hover:text-red-700 delete-record-btn\" data-id=\"" + record.id + "\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>" +
+                        "</div>" +
+                    "</td>" +
+                "</tr>";
+            }).join("");
+        }
+
+        function renderCalendar(year, month, attendanceData) {
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth();
+            
+            // Create month header
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const monthName = monthNames[month];
+            
+            let html = "<div class=\"mb-4\"><h5 class=\"font-medium text-gray-700\">" + monthName + " " + year + "</h5></div>";
+            
+            // Create calendar grid
+            html += "<div class=\"grid grid-cols-7 gap-1\">";
+            
+            // Day headers
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            dayNames.forEach(day => {
+                html += "<div class=\"text-center text-sm text-gray-500 py-2\">" + day + "</div>";
+            });
+            
+            // Get first day of month
+            const firstDay = new Date(year, month, 1);
+            const startDay = firstDay.getDay(); // 0 = Sunday
+            
+            // Get days in month
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            // Previous month days
+            for (let i = 0; i < startDay; i++) {
+                html += "<div class=\"calendar-day text-gray-400\"></div>";
+            }
+            
+            // Current month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = year + "-" + (month + 1) + "-" + day;
+                const attendanceOnDay = attendanceData.filter(r => r.date === dateStr);
+                const presentCount = attendanceOnDay.filter(r => r.status === "present" || r.status === "late" || r.status === "early-leave").length;
+                const totalCount = attendanceOnDay.length;
+                const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+                
+                const isToday = year === currentYear && month === currentMonth && day === today.getDate();
+                const isActive = attendanceRate >= :80;
+                
+                let dayClass = "calendar-day ";
+                if (isToday) dayClass += "today ";
+                if (isActive) dayClass += "active ";
+                
+                html += "<div class=\"" + dayClass + "\" data-date=\"" + dateStr + "\">" +
+                    "<div class=\"text-center\">" +
+                        "<span class=\"font-medium\">" + day + "</span>" +
+                        "<div class=\"text-xs mt-1\">" + attendanceRate + "%</div>" +
+                    "</div>" +
+                "</div>";
+            }
+            
+            html += "</div>";
+            
+            return html;
+        }
+
+        function renderTimelineChart() {
+            // Simulate timeline data (check-ins per hour)
+            const timelineData = [
+                { "hour": 8, "count": 6 },
+                { "hour": 9, "count": 1 },
+                { "hour": 16, "count": 2 },
+                { "hour": 0, "count": 1 }
+            ];
+            
+            let html = "<div class=\"absolute bottom-0 left-0 right-0 h-48 flex items-end justify-around\">";
+            
+            timelineData.forEach(data => {
+                const height = Math.min(48, data.count * 8); // Scale height
+                html += "<div class=\"relative\" style=\"width: 20%\">" +
+                    "<div class=\"chart-bar mx-auto\" style=\"height: " + height + "px; width: 80%\"></div>" +
+                    "<div class=\"text-center text-xs text-gray-600 mt-2\">" + data.hour + ":00</div>" +
+                "</div>";
+            });
+            
+            html += "</div>";
+            
+            // Add timeline marker (current time)
+            const now = new Date();
+            const currentHour = now.getHours();
+            const position = ((currentHour - 6) / 18) * 100; // From 6:00 to 24:00
+            
+            html += "<div class=\"time-line\" style=\"top: " + (position) + "%\"></div>";
+            html += "<div class=\"absolute top-0 left-0 right-0 text-xs text-gray-600 text-center\">Current Time: " + formatTime(now.toISOString()) + "</div>";
+            
+            return html;
+        }
+
+        function renderTrendChart() {
+            let html = "<div class=\"absolute bottom-0 left-0 right-0 h-48 flex items-end justify-around\">";
+            
+            appData.monthlyTrends.forEach(trend => {
+                const presentHeight = Math.min(48, trend.present * 0.48); // Scale to 48px max
+                const absentHeight = Math.min(48, trend.absent * 0.48);
+                const lateHeight = Math.min(48, trend.late * 0.48);
+                
+                html += "<div class=\"relative\" style=\"width: 22%\">" +
+                    "<div class=\"absolute bottom-0 chart-bar\" style=\"height: " + presentHeight + "px; width: 100%; background-color: #27ae60\"></div>" +
+                    "<div class=\"absolute bottom-" + presentHeight + "px chart-bar\" style=\"height: " + absentHeight + "px; width: 100%; background-color: #e74c3c\"></div>" +
+                    "<div class=\"absolute bottom-" + (presentHeight + absentHeight) + "px chart-bar\" style=\"height: " + lateHeight + "px; width: 100%; background-color: #f39c12\"></div>" +
+                    "<div class=\"text-center text-xs text-gray-600 mt-2\">Week " + trend.week + "</div>" +
+                "</div>";
+            });
+            
+            html += "</div>";
+            
+            // Add legend
+            html += "<div class=\"absolute top-4 left-4 flex space-x-2\">" +
+                "<div class=\"flex items-center\"><span class=\"w-3 h-3 bg-success mr-1\"></span><span class=\"text-xs text-gray-600\">Present</span></div>" +
+                "<div class=\"flex items-center\"><span class=\"w-3 h-3 bg-danger mr-1\"></span><span class=\"text-xs text-gray-600\">Absent</span></div>" +
+                "<div class=\"flex items-center\"><span class=\"w-3 h-3 bg-warning mr-1\"></span><span class=\"text-xs text-gray-600\">Late</span></div>" +
+            "</div>";
+            
+            return html;
+        }
+
+        function renderDepartmentChart() {
+            let html = "<div class=\"absolute bottom-0 left-0 right-0 h-48 flex items-end justify-around\">";
+            
+            appData.departmentPerformance.forEach(dept => {
+                const height = Math.min(48, dept.attendance * 0.48);
+                const lateHeight = Math.min(48, dept.lateRate * 0.48);
+                
+                html += "<div class=\"relative\" style=\"width: 16%\">" +
+                    "<div class=\"chart-bar mx-auto\" style=\"height: " + height + "px; width: 90%; background-color: #4a90e2\"></div>" +
+                    "<div class=\"chart-bar mx-auto\" style=\"height: " + lateHeight + "px; width: 90%; background-color: #f39c12; position: absolute; bottom: " + height + "px\"></div>" +
+                    "<div class=\"text-center text-xs text-gray-600 mt-2 truncate\">" + dept.department + "</div>" +
+                "</div>";
+            });
+            
+            html += "</div>";
+            
+            return html;
+        }
+
+        function renderPagination(totalPages, currentPage) {
+            let pages = "";
+            const maxVisiblePages = 5;
+            
+            if (totalPages <= maxVisiblePages) {
+                for (let i = 1; i <= totalPages; i++) {
+                    pages += "<button class=\"px-3 py-1 border rounded text-sm pagination-btn " + (i === currentPage ? "pagination-active" : "border-gray-300") + "\" data-page=\"" + i + "\">" + i + "</button>";
+                }
+            } else {
+                // Always show first page
+                pages += "<button class=\"px-3 py-1 border border-gray-300 rounded text-sm pagination-btn " + (1 === currentPage ? "pagination-active" : "") + "\" data-page=\"1\">1</button>";
+                
+                // Calculate start and end of visible pages
+                let start = Math.max(2, currentPage - 1);
+                let end = Math.min(totalPages - 1, currentPage + 1);
+                
+                // Adjust if at the beginning
+                if (currentPage <= 3) {
+                    start = 2;
+                    end = 4;
+                }
+                
+                // Adjust if at the end
+                if (currentPage >= totalPages - 2) {
+                    start = totalPages - 3;
+                    end = totalPages - 1;
+                }
+                
+                // Add ellipsis if needed
+                if (start > 2) {
+                    pages += "<span class=\"px-2\">...</span>";
+                }
+                
+                // Add middle pages
+                for (let i = start; i <= end; i++) {
+                    pages += "<button class=\"px-3 py-1 border rounded text-sm pagination-btn " + (i === currentPage ? "pagination-active" : "border-gray-300") + "\" data-page=\"" + i + "\">" + i + "</button>";
+                }
+                
+                // Add ellipsis if needed
+                if (end < totalPages - 1) {
+                    pages += "<span class=\"px-2\">...</span>";
+                }
+                
+                // Always show last page
+                pages += "<button class=\"px-3 py-1 border border-gray-300 rounded text-sm pagination-btn " + (totalPages === currentPage ? "pagination-active" : "") + "\" data-page=\"" + totalPages + "\">" + totalPages + "</button>";
+            }
+            
+            return pages;
+        }
+
+        // Utility Functions
+        function formatTime(dateTimeStr) {
+            if (!dateTimeStr) return "";
+            const date = new Date(dateTimeStr);
+            return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return "";
+            const date = new Date(dateStr);
+            return date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            const dateStr = now.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+            
+            document.getElementById("current-time").textContent = timeStr;
+            document.getElementById("current-date").textContent = dateStr;
+        }
+
+        function getFilteredAttendance() {
+            const startDate = document.getElementById("filter-start-date").value;
+            const endDate = document.getElementById("filter-end-date").value;
+            const departmentFilter = document.getElementById("filter-department").value;
+            const statusFilter = document.getElementById("filter-status").value;
+            
+            return appData.attendanceRecords.filter(record => {
+                // Date range filter
+                const recordDate = new Date(record.date);
+                const matchesStartDate = !startDate || recordDate >= new Date(startDate);
+                const matchesEndDate = !endDate || recordDate <= new Date(endDate);
+                
+                // Department filter
+                const worker = appData.workers.find(w => w.id === record.workerId);
+                const matchesDepartment = !departmentFilter || worker?.department === departmentFilter;
+                
+                // Status filter
+                const matchesStatus = !statusFilter || record.status === statusFilter;
+                
+                return matchesStartDate && matchesEndDate && matchesDepartment && matchesStatus;
+            });
+        }
+
+        function updateStats() {
+            const today = new Date().toISOString().split("T")[0];
+            const todayRecords = appData.attendanceRecords.filter(r => r.date === today);
+            const presentToday = todayRecords.filter(r => r.status === "present").length;
+            const absentToday = todayRecords.filter(r => r.status === "absent").length;
+            const lateToday = todayRecords.filter(r => r.status === "late").length;
+            const leaveToday = todayRecords.filter(r => r.status === "leave").length;
+            const totalToday = todayRecords.length;
+            
+            // Weekly attendance rate (simplified)
+            const last7DaysRecords = appData.attendanceRecords.filter(r => {
+                const recordDate = new Date(r.date);
+                const today = new Date();
+                const diffDays = Math.floor((today - recordDate) / (1000 * 60 * 60 * 24));
+                return diffDays <= 7;
+            });
+            
+            const present7Days = last7DaysRecords.filter(r => r.status === "present" || r.status === "late" || r.status === "early-leave").length;
+            const total7Days = last7DaysRecords.length;
+            const weeklyRate = total7Days > 0 ? Math.round((present7Days / total7Days) * 100) : 0;
+            
+            document.getElementById("stats-present").textContent = presentToday;
+            document.getElementById("stats-total-today").textContent = totalToday;
+            document.getElementById("stats-absent").textContent = absentToday;
+            document.getElementById("stats-leave-today").textContent = leaveToday;
+            document.getElementById("stats-weekly").textContent = weeklyRate + "%";
+            document.getElementById("stats-late").textContent = lateToday;
+            document.getElementById("stats-late-today").textContent = lateToday;
+        }
+
+        function renderAttendance() {
+            const filteredRecords = getFilteredAttendance();
+            const totalRecords = filteredRecords.length;
+            const totalPages = Math.ceil(totalRecords / appData.itemsPerPage);
+            
+            // Update pagination
+            appData.currentPage = Math.min(appData.currentPage, totalPages || 1);
+            
+            // Get current page records
+            const startIndex = (appData.currentPage - 1) * appData.itemsPerPage;
+            const endIndex = startIndex + appData.itemsPerPage;
+            const currentRecords = filteredRecords.slice(startIndex, endIndex);
+            
+            // Render table
+            document.getElementById("attendance-table-body").innerHTML = renderAttendanceTable(currentRecords);
+            
+            // Render live check-ins
+            document.getElementById("live-checkins").innerHTML = renderLiveCheckIns(appData.liveCheckIns);
+            
+            // Render timeline chart
+            document.getElementById("timeline-chart").innerHTML = renderTimelineChart();
+            
+            // Render trend chart
+            document.getElementById("trend-chart").innerHTML = renderTrendChart();
+            
+            // Render department chart
+            document.getElementById("department-chart").innerHTML = renderDepartmentChart();
+            
+            // Render calendar
+            const today = new Date();
+            document.getElementById("attendance-calendar").innerHTML = renderCalendar(
+                today.getFullYear(),
+                today.getMonth(),
+                appData.attendanceRecords
+            );
+            
+            // Update pagination controls
+            document.getElementById("current-page").textContent = appData.currentPage;
+            document.getElementById("total-pages").textContent = totalPages || 1;
+            document.getElementById("page-numbers").innerHTML = renderPagination(totalPages, appData.currentPage);
+            
+            // Update button states
+            document.getElementById("first-page").disabled = appData.currentPage === 1;
+            document.getElementById("prev-page").disabled = appData.currentPage === 1;
+            document.getElementById("next-page").disabled = appData.currentPage === totalPages || totalPages === 0;
+            document.getElementById("last-page").disabled = appData.currentPage === totalPages || totalPages === 0;
+            
+            // Update summary
+            const showingCount = currentRecords.length;
+            document.getElementById("table-summary").textContent = `Showing ${showingCount} of ${totalRecords} records`;
+            document.getElementById("total-count").textContent = totalRecords;
+            
+            // Show/hide empty state
+            if (totalRecords === 0) {
+                document.getElementById("empty-state").classList.remove("hidden");
+                document.getElementById("loading-state").classList.add("hidden");
+            } else {
+                document.getElementById("empty-state").classList.add("hidden");
+                document.getElementById("loading-state").classList.add("hidden");
+            }
+        }
+
+        function showCheckInModal() {
+            const modal = document.getElementById("checkin-modal");
+            const form = document.getElementById("checkin-form");
+            
+            // Set current time as default check-in
+            const now = new Date();
+            const nowStr = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+            
+            document.getElementById("checkin-worker").innerHTML = 
+                "<option value=\"\">Select Worker</option>" + renderWorkersSelect();
+            document.getElementById("checkin-time").value = nowStr;
+            document.getElementById("checkout-time").value = nowStr;
+            
+            modal.classList.remove("hidden");
+        }
+
+        function showEditAttendanceModal(recordId) {
+            const modal = document.getElementById("edit-attendance-modal");
+            const record = appData.attendanceRecords.find(r => r.id === recordId);
+            
+            if (!record) return;
+            
+            // Convert times to datetime-local format
+            const checkInStr = record.checkInTime ? 
+                record.date + "T" + record.checkInTime.slice(0, 5) : "";
+            const checkOutStr = record.checkOutTime ? 
+                record.date + "T" + record.checkOutTime.slice(0, 5) : "";
+            
+            document.getElementById("edit-checkin-time").value = checkInStr;
+            document.getElementById("edit-checkout-time").value = checkOutStr;
+            document.getElementById("edit-status").value = record.status;
+            document.getElementById("edit-notes").value = record.notes || "";
+            
+            modal.dataset.recordId = recordId;
+            modal.classList.remove("hidden");
+        }
+
+        function showReportModal() {
+            const modal = document.getElementById("report-modal");
+            
+            // Set default dates (last month)
+            const today = new Date();
+            const lastMonth = new Date(today);
+            lastMonth.setMonth(lastMonth.getMonth() - 1);
+            
+            document.getElementById("report-start-date").value = lastMonth.toISOString().split("T")[0];
+            document.getElementById("report-end-date").value = today.toISOString().split("T")[0];
+            document.getElementById("report-department").innerHTML = 
+                "<option value=\"\">All Departments</option>" + renderDepartmentsSelect();
+            
+            modal.classList.remove("hidden");
+        }
+
+        function hideCheckInModal() {
+            document.getElementById("checkin-modal").classList.add("hidden");
+        }
+
+        function hideEditModal() {
+            document.getElementById("edit-attendance-modal").classList.add("hidden");
+        }
+
+        function hideReportModal() {
+            document.getElementById("report-modal").classList.add("hidden");
+        }
+
+        function showNotification(message, type = "info") {
+            // Create notification element
+            const notification = document.createElement("div");
+            notification.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center ${type === "success" ? "bg-success text-white" : type === "error" ? "bg-danger text-white" : "bg-accent text-white"}`;
+            notification.innerHTML = `
+                <i class="fas ${type === "success" ? "fa-check-circle" : type === "error" ? "fa-exclamation-circle" : "fa-info-circle"} mr-3"></i>
+                <span>${message}</span>
+            `;
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.opacity = "0";
+                notification.style.transition = "opacity 0.3s";
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Initialize Application
+        function initApp() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Initialize navigation
+            document.getElementById("nav-menu").innerHTML = renderNavigationItems(appData.navigationItems);
+            
+            // Initialize filters
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 7);
+            
+            document.getElementById("filter-start-date").value = yesterday.toISOString().split("T")[0];
+            document.getElementById("filter-end-date").value = today.toISOString().split("T")[0];
+            document.getElementById("filter-department").innerHTML = 
+                "<option value=\"\">All Departments</option>" + renderDepartmentsSelect();
+            
+            // Initialize report form
+            document.getElementById("report-department").innerHTML = 
+                "<option value=\"\">All Departments</option>" + renderDepartmentsSelect();
+            
+            // Update stats and render attendance
+            updateStats();
+            renderAttendance();
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Simulate live updates
+            simulateLiveUpdates();
+        }
+
+        function setupEventListeners() {
+            // Navigation
+            document.addEventListener("click", function(event) {
+                if (event.target.closest("[data-nav]")) {
+                    event.preventDefault();
+                    const navId = event.target.closest("[data-nav]").dataset.nav;
+                    if (navId !== "attendance") {
+                        alert(`"${navId}" page would open here. This is an attendance page demo.`);
+                    }
+                }
+            });
+            
+            // Logout
+            document.getElementById("logout-btn").addEventListener("click", function() {
+                if (confirm("Are you sure you want to logout?")) {
+                    alert("You would be logged out and redirected to login page.");
+                }
+            });
+            
+            // Manual check-in button
+            document.getElementById("manual-checkin-btn").addEventListener("click", showCheckInModal);
+            document.getElementById("close-checkin-modal").addEventListener("click", hideCheckInModal);
+            document.getElementById("cancel-checkin").addEventListener("click", hideCheckInModal);
+            document.getElementById("checkin-form").addEventListener("submit", handleCheckInFormSubmit);
+            
+            // Edit attendance record (delegated)
+            document.addEventListener("click", function(event) {
+                if (event.target.closest(".edit-record-btn")) {
+                    event.preventDefault();
+                    const recordId = parseInt(event.target.closest(".edit-record-btn").dataset.id);
+                    showEditAttendanceModal(recordId);
+                }
+                
+                if (event.target.closest(".delete-record-btn")) {
+                    event.preventDefault();
+                    const recordId = parseInt(event.target.closest(".delete-record-btn").dataset.id);
+                    const record = appData.attendanceRecords.find(r => r.id === recordId);
+                    if (record) {
+                        const worker = appData.workers.find(w => w.id === record.workerId);
+                        if (confirm(`Are you sure you want to delete attendance record for ${worker?.fullName} on ${formatDate(record.date)}?`)) {
+                            appData.attendanceRecords = appData.attendanceRecords.filter(r => r.id !== recordId);
+                            showNotification("Attendance record deleted successfully!", "success");
+                            updateStats();
+                            renderAttendance();
+                        }
+                    }
+                }
+            });
+            
+            // Edit modal
+            document.getElementById("close-edit-modal").addEventListener("click", hideEditModal);
+            document.getElementById("cancel-edit").addEventListener("click", hideEditModal);
+            document.getElementById("edit-attendance-form").addEventListener("submit", handleEditFormSubmit);
+            
+            // Generate report
+            document.getElementById("generate-report-btn").addEventListener("click", showReportModal);
+            document.getElementById("close-report-modal").addEventListener("click", hideReportModal);
+            document.getElementById("cancel-report").addEventListener("click", hideReportModal);
+            document.getElementById("report-form").addEventListener("submit", handleReportFormSubmit);
+            
+            // Configure devices
+            document.getElementById("configure-devices-btn").addEventListener("click", () => {
+                alert("Device configuration interface would open here.");
+            });
+            
+            // Sync data
+            document.getElementById("sync-attendance-btn").addEventListener("click", () => {
+                showNotification("Syncing attendance data with devices...", "info");
+                setTimeout(() => {
+                    showNotification("Attendance data synced successfully!", "success");
+                }, 2000);
+            });
+            
+            // Export table
+            document.getElementById("export-table").addEventListener("click", () => {
+                const filteredRecords = getFilteredAttendance();
+                if (filteredRecords.length === 0) {
+                    alert("No records to export.");
+                    return;
+                }
+                alert(`Exporting ${filteredRecords.length} attendance records to CSV file.`);
+            });
+            
+            // Filters
+            document.getElementById("apply-filters").addEventListener("click", function() {
+                appData.currentPage = 1;
+                updateStats();
+                renderAttendance();
+            });
+            
+            document.getElementById("clear-filters").addEventListener("click", function() {
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 7);
+                
+                document.getElementById("filter-start-date").value = yesterday.toISOString().split("T")[0];
+                document.getElementById("filter-end-date").value = today.toISOString().split("T")[0];
+                document.getElementById("filter-department").value = "";
+                document.getElementById("filter-status").value = "";
+                
+                appData.currentPage = 1;
+                updateStats();
+                renderAttendance();
+            });
+            
+            // Calendar day clicks
+            document.getElementById("attendance-calendar").addEventListener("click", function(event) {
+                if (event.target.closest(".calendar-day[data-date]")) {
+                    const date = event.target.closest(".calendar-day").dataset.date;
+                    document.getElementById("filter-start-date").value = date;
+                    document.getElementById("filter-end-date").value = date;
+                    appData.currentPage = 1;
+                    updateStats();
+                    renderAttendance();
+                }
+            });
+            
+            // Items per page
+            document.getElementById("items-per-page").addEventListener("e":function() {
+                appData.itemsPerPage = parseInt(this.value);
+                appData.currentPage = 1;
+                renderAttendance();
+            });
+            
+            // Pagination
+            document.getElementById("first-page").addEventListener("click", function() {
+                appData.currentPage = 1;
+                renderAttendance();
+            });
+            
+            document.getElementById("prev-page").addEventListener("click", function() {
+                if (appData.currentPage > 1) {
+                    appData.currentPage--;
+                    renderAttendance();
+                }
+            });
+            
+            document.getElementById("next-page").addEventListener("click", function() {
+                const filteredRecords = getFilteredAttendance();
+                const totalPages = Math.ceil(filteredRecords.length / appData.itemsPerPage);
+                if (appData.currentPage < totalPages) {
+                    appData.currentPage++;
+                    renderAttendance();
+                }
+            });
+            
+            document.getElementById("last-page").addEventListener("click", function() {
+                const filteredRecords = getFilteredAttendance();
+                const totalPages = Math.ceil(filteredRecords.length / appData.itemsPerPage);
+                appData.currentPage = totalPages;
+                renderAttendance();
+            });
+            
+            // Page number buttons (delegated)
+            document.getElementById("page-numbers").addEventListener("click", function(event) {
+                if (event.target.classList.contains("pagination-btn")) {
+                    appData.currentPage = parseInt(event.target.dataset.page);
+                    renderAttendance();
+                }
+            });
+        }
+
+        function handleCheckInFormSubmit(event) {
+            event.preventDefault();
+            
+            const workerId = parseInt(document.getElementById("checkin-worker").value);
+            const checkInTime = document.getElementById("checkin-time").value;
+            const checkOutTime = document.getElementById("checkout-time").value;
+            const status = document.getElementById("checkin-status").value;
+            const notes = document.getElementById("checkin-notes").value;
+            
+            if (!workerId) {
+                alert("Please select a worker.");
+                return;
+            }
+            
+            // Extract date from datetime
+            const date = checkInTime.split("T")[0];
+            const checkInTimeStr = checkInTime.split("T")[1];
+            const checkOutTimeStr = checkOutTime.split("T")[1];
+            
+            // Calculate hours worked
+            const hoursWorked = calculateHoursWorked(checkInTimeStr, checkOutTimeStr);
+            
+            // Create new record
+            const newRecord = {
+                id: appData.attendanceRecords.length > 0 ? Math.max(...appData.attendanceRecords.map(r => r.id)) + 1 : 1,
+                workerId: workerId,
+                date: date,
+                checkInTime: checkInTimeStr,
+                checkOutTime: checkOutTimeStr,
+                status: status,
+                hoursWorked: hoursWorked,
+                notes: notes,
+                isLive: true,
+                timestamp: checkInTime
+            };
+            
+            // Add to records
+            appData.attendanceRecords.push(newRecord);
+            
+            // Also add to live check-ins
+            const worker = appData.workers.find(w => w.id === workerId);
+            appData.liveCheckIns.push({
+                id: appData.liveCheckIns.length + 1,
+                workerId: workerId,
+                timestamp: checkInTime,
+                status: status,
+                type: "manual",
+                device: "Admin override"
+            });
+            
+            // Show success message
+            showNotification(`Manual check-in recorded for ${worker?.fullName}!`, "success");
+            
+            // Update UI
+            updateStats();
+            renderAttendance();
+            
+            // Close modal
+            hideCheckInModal();
+        }
+
+        function handleEditFormSubmit(event) {
+            event.preventDefault();
+            
+            const modal = document.getElementById("edit-attendance-modal");
+            const recordId = parseInt(modal.dataset.recordId);
+            const record = appData.attendanceRecords.find(r => r.id === recordId);
+            
+            if (!record) return;
+            
+            const checkInTime = document.getElementById("edit-checkin-time").value;
+            const checkOutTime = document.getElementById("edit-checkout-time").value;
+            const status = document.getElementById("edit-status").value;
+            const notes = document.getElementById("edit-notes").value;
+            
+            // Update record
+            record.checkInTime = checkInTime.split("T")[1];
+            record.checkOutTime = checkOutTime.split("T")[1];
+            record.status = status;
+            record.notes = notes;
+            record.hoursWorked = calculateHoursWorked(record.checkInTime, record.checkOutTime);
+            
+            // Show success message
+            showNotification("Attendance record updated successfully!", "success");
+            
+            // Update UI
+            updateStats();
+            renderAttendance();
+            
+            // Close modal
+            hideEditModal();
+        }
+
+        function handleReportFormSubmit(event) {
+            event.preventDefault();
+            
+            const reportType = document.getElementById("report-type").value;
+            const startDate = document.getElementById("report-start-date").value;
+            const endDate = document.getElementById("report-end-date").value;
+            const department = document.getElementById("report-department").value;
+            const format = document.querySelector("input[name='format']:checked").value;
+            
+            // Calculate number of records for report
+            const filteredRecords = appData.attendanceRecords.filter(record => {
+                const recordDate = new Date(record.date);
+                const matchesDate = recordDate >= new Date(startDate) && recordDate <= new Date(endDate);
+                const worker = appData.workers.find(w => w.id === record.workerId);
+                const matchesDepartment = !department || worker?.department === department;
+                return matchesDate && matchesDepartment;
+            });
+            
+            showNotification(`Generating ${reportType} report (${filteredRecords.length} records) in ${format} format...`, "info");
+            
+            // Simulate report generation
+            setTimeout(() => {
+                showNotification(`Report generated successfully! Download would start automatically.`, "success");
+                hideReportModal();
+            }, 3000);
+        }
+
+        function calculateHoursWorked(checkIn, checkOut) {
+            if (!checkIn || !checkOut) return 0;
+            
+            // Simple calculation: assume HH:MM format
+            const inHour = parseInt(checkIn.split(":")[0]);
+            const inMin = parseInt(checkIn.split(":")[1]);
+            const outHour = parseInt(checkOut.split(":")[0]);
+            const outMin = parseInt(checkOut.split(":")[1]);
+            
+            const hours = outHour - inHour;
+            const minutes = outMin - inMin;
+            
+            return hours + (minutes / 60);
+        }
+
+        function simulateLiveUpdates() {
+            // Simulate new check-ins every 5 minutes
+            setTimeout(() => {
+                if (appData.liveCheckIns.length < 10) {
+                    const randomWorker = appData.workers[Math.floor(Math.random() * appData.workers.length)];
+                    const now = new Date();
+                    const timestamp = now.toISOString().slice(0, 19);
+                    
+                    appData.liveCheckIns.push({
+                        id: appData.liveCheckIns.length + 1,
+                        workerId: randomWorker.id,
+                        timestamp: timestamp,
+                        status: "present",
+                        type: "face-recognition",
+                        device: "Gate " + (Math.floor(Math.random() * 3) + 1)
+                    });
+                    
+                    // Also add to attendance records
+                    const date = now.toISOString().split("T")[0];
+                    const time = now.toISOString().split("T")[1].slice(0, 8);
+                    
+                    appData.attendanceRecords.push({
+                        id: appData.attendanceRecords.length + 1,
+                        workerId: randomWorker.id,
+                        date: date,
+                        checkInTime: time,
+                        checkOutTime: null,
+                        status: "present",
+                        hoursWorked: 0,
+                        notes: "Live check-in simulation",
+                        isLive: true,
+                        timestamp: timestamp
+                    });
+                    
+                    // Update UI
+                    updateStats();
+                    renderAttendance();
+                }
+                
+                // Continue simulation
+                simulateLiveUpdates();
+            }, 300000); // 5 minutes
+        }
+
+        // Initialize the application
+        document.addEventListener("DOMContentLoaded", initApp);
+    </script>
+</body>
+</html>

@@ -1,0 +1,2059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workers Management - Laberion</title>
+    <meta name="description" content="Manage all workers and their profiles for Laberion fruit juice company">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#2c5f2d",
+                        secondary: "#f5a623",
+                        accent: "#4a90e2",
+                        danger: "#e74c3c",
+                        success: "#27ae60",
+                        warning: "#f39c12",
+                        laberion: {
+                            green: "#2c5f2d",
+                            orange: "#f5a623",
+                            light: "#f8f9fa",
+                            dark: "#1a1a1a"
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        heading: ['Montserrat', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        
+        .table-row-hover:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .worker-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        
+        .attendance-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+        }
+        
+        .filter-active {
+            background-color: #2c5f2d;
+            color: white;
+        }
+        
+        .pagination-active {
+            background-color: #2c5f2d;
+            color: white;
+            border-color: #2c5f2d;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2c5f2d;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
+        }
+        
+        .empty-state:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Main Container -->
+    <div id="app" class="min-h-screen">
+        <!-- Sidebar -->
+        <div class="sidebar fixed left-0 top-0 h-full w-64 bg-laberion-dark text-white flex flex-col">
+            <div class="p-6 border-b border-white/10">
+                <div class="flex items-center">
+                    <i class="fas fa-apple-alt text-laberion-orange text-2xl mr-3"></i>
+                    <h1 class="text-xl font-heading font-bold">Laberion Admin</h1>
+                </div>
+                <p class="text-white/60 text-sm mt-1">Worker Management System</p>
+            </div>
+            
+            <nav class="flex-1 p-4">
+                <ul id="nav-menu" class="space-y-2"></ul>
+            </nav>
+            
+            <div class="p-4 border-t border-white/10">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-laberion-orange flex items-center justify-center mr-3">
+                        <span class="font-bold" id="admin-initial">A</span>
+                    </div>
+                    <div>
+                        <p class="font-medium" id="admin-name">Admin User</p>
+                        <p class="text-white/60 text-sm">Administrator</p>
+                    </div>
+                </div>
+                <button id="logout-btn" class="mt-4 w-full text-left text-white/70 hover:text-white py-2 px-3 rounded transition duration-200">
+                    <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="ml-64 min-h-screen">
+            <!-- Top Bar -->
+            <header class="bg-white border-b border-gray-200 px-6 py-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-heading font-bold text-gray-800">Workers Management</h2>
+                        <p class="text-gray-600 text-sm">Manage all workers and their profiles</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <i class="fas fa-bell text-gray-500 text-xl cursor-pointer hover:text-laberion-orange transition duration-200"></i>
+                            <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-600" id="current-date">Loading...</p>
+                            <p class="text-xs text-gray-500" id="current-time">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Main Content Area -->
+            <main class="p-6">
+                <!-- Page Header with Actions -->
+                <div class="mb-8">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">All Workers</h3>
+                            <p class="text-gray-600 text-sm">Total <span id="total-workers-count" class="font-semibold">0</span> workers registered</p>
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <button id="add-worker-btn" class="px-4 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200 flex items-center">
+                                <i class="fas fa-user-plus mr-2"></i> Add New Worker
+                            </button>
+                            <button id="import-workers-btn" class="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition duration-200 flex items-center">
+                                <i class="fas fa-file-import mr-2"></i> Import CSV
+                            </button>
+                            <button id="export-workers-btn" class="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition duration-200 flex items-center">
+                                <i class="fas fa-file-export mr-2"></i> Export
+                            </button>
+                            <button id="bulk-actions-btn" class="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition duration-200 flex items-center">
+                                <i class="fas fa-tasks mr-2"></i> Bulk Actions
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Filters and Search -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+                    <div class="flex flex-col lg:flex-row gap-4">
+                        <!-- Search -->
+                        <div class="flex-1">
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input type="text" id="search-workers" placeholder="Search workers by name, code, or position..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                            </div>
+                        </div>
+                        
+                        <!-- Filters -->
+                        <div class="flex flex-wrap gap-3">
+                            <select id="filter-department" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                <option value="">All Departments</option>
+                            </select>
+                            
+                            <select id="filter-status" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                            
+                            <select id="filter-face-enrolled" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                <option value="">Face Enrollment</option>
+                                <option value="enrolled">Enrolled</option>
+                                <option value="not-enrolled">Not Enrolled</option>
+                            </select>
+                            
+                            <button id="clear-filters" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                                <i class="fas fa-times mr-1"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Active Filters -->
+                    <div id="active-filters" class="mt-4 flex flex-wrap gap-2 hidden">
+                        <span class="text-sm text-gray-600">Active filters:</span>
+                    </div>
+                </div>
+                
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Total Workers</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stats-total">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-full bg-laberion-green/10 flex items-center justify-center">
+                                <i class="fas fa-users text-laberion-green text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-success text-sm mt-2"><i class="fas fa-arrow-up mr-1"></i> <span id="stats-active">0</span> active</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Face Enrolled</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stats-enrolled">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                                <i class="fas fa-camera text-accent text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-2"><span id="stats-enrollment-rate">0%</span> enrollment rate</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">On Leave</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stats-leave">0</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
+                                <i class="fas fa-umbrella-beach text-secondary text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-2"><span id="stats-leave-this-week">0</span> this week</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Avg. Attendance</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stats-attendance">0%</h3>
+                            </div>
+                            <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                                <i class="fas fa-calendar-check text-success text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-2">Last 30 days</p>
+                    </div>
+                </div>
+                
+                <!-- Workers Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <!-- Table Header -->
+                    <div class="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h3 class="font-heading font-bold text-gray-800">Workers List</h3>
+                            <p class="text-gray-600 text-sm" id="table-summary">Showing 0 workers</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center">
+                                <span class="text-sm text-gray-600 mr-2">View:</span>
+                                <div class="flex border border-gray-300 rounded-lg overflow-hidden">
+                                    <button id="view-list" class="px-3 py-1 bg-laberion-green text-white">
+                                        <i class="fas fa-list"></i>
+                                    </button>
+                                    <button id="view-grid" class="px-3 py-1 bg-white text-gray-600 hover:bg-gray-50">
+                                        <i class="fas fa-th-large"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-sm text-gray-600 mr-2">Per page:</span>
+                                <select id="items-per-page" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Table Content -->
+                    <div class="overflow-x-auto">
+                        <!-- List View -->
+                        <div id="list-view">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <input type="checkbox" id="select-all" class="rounded">
+                                        </th>
+                                        <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Worker</th>
+                                        <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Code</th>
+                                        <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                        <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Face Enrolled</th>
+                                        <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Check-In</th>
+                                        <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="workers-table-body" class="divide-y divide-gray-200">
+                                    <!-- Data will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Grid View -->
+                        <div id="grid-view" class="hidden p-6">
+                            <div id="workers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                <!-- Data will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading State -->
+                    <div id="loading-state" class="hidden p-12">
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="loading-spinner mb-4"></div>
+                            <p class="text-gray-600">Loading workers...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div id="empty-state" class="hidden p-12">
+                        <div class="text-center empty-state">
+                            <i class="fas fa-users text-5xl text-gray-300 mb-4"></i>
+                            <h3 class="text-xl font-semibold text-gray-500 mb-2">No workers found</h3>
+                            <p class="text-gray-400 mb-6">Try adjusting your filters or add a new worker</p>
+                            <button id="add-first-worker" class="px-6 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200">
+                                <i class="fas fa-user-plus mr-2"></i> Add First Worker
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Table Footer -->
+                    <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="text-sm text-gray-600">
+                            <span id="selected-count">0</span> of <span id="total-count">0</span> workers selected
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="text-sm text-gray-600">
+                                Page <span id="current-page">1</span> of <span id="total-pages">1</span>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="first-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">
+                                    <i class="fas fa-angle-left"></i>
+                                </button>
+                                <div class="flex space-x-1" id="page-numbers"></div>
+                                <button id="next-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">
+                                    <i class="fas fa-angle-right"></i>
+                                </button>
+                                <button id="last-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bulk Actions Bar -->
+                <div id="bulk-actions-bar" class="hidden fixed bottom-0 left-64 right-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+                    <div class="container mx-auto px-6">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-tasks text-laberion-green text-xl mr-3"></i>
+                                <span class="font-medium" id="bulk-selected-count">0</span> workers selected
+                            </div>
+                            <div class="flex space-x-3">
+                                <select id="bulk-action-select" class="px-4 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">Choose action...</option>
+                                    <option value="activate">Activate selected</option>
+                                    <option value="deactivate">Deactivate selected</option>
+                                    <option value="enroll-face">Enroll face for selected</option>
+                                    <option value="export-selected">Export selected</option>
+                                    <option value="delete">Delete selected</option>
+                                </select>
+                                <button id="apply-bulk-action" class="px-4 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg">
+                                    Apply
+                                </button>
+                                <button id="cancel-bulk-action" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        
+        <!-- Add/Edit Worker Modal -->
+        <div id="worker-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-xl font-heading font-bold" id="modal-title">Add New Worker</h3>
+                    <button id="close-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <form id="worker-form" class="space-y-6">
+                        <!-- Basic Information -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Basic Information</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                                    <input type="text" id="input-name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Enter full name">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Employee Code *</label>
+                                    <input type="text" id="input-code" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="e.g., LAB-001">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                                    <input type="email" id="input-email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="worker@laberion.com">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                                    <input type="tel" id="input-phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="+383 44 123 456">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+                                    <input type="date" id="input-dob" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                                    <select id="input-gender" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="">Select gender</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                        <option value="prefer-not-to-say">Prefer not to say</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Employment Details -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Employment Details</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                                    <select id="input-department" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="">Select Department</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Position *</label>
+                                    <input type="text" id="input-position" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="e.g., Production Supervisor">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Employment Type</label>
+                                    <select id="input-employment-type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="full-time">Full Time</option>
+                                        <option value="part-time">Part Time</option>
+                                        <option value="contract">Contract</option>
+                                        <option value="temporary">Temporary</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Join Date</label>
+                                    <input type="date" id="input-join-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" value="">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Shift</label>
+                                    <select id="input-shift" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="morning">Morning (8:00 - 16:00)</option>
+                                        <option value="afternoon">Afternoon (16:00 - 00:00)</option>
+                                        <option value="night">Night (00:00 - 8:00)</option>
+                                        <option value="flexible">Flexible</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Salary Grade</label>
+                                    <select id="input-salary-grade" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="A">Grade A</option>
+                                        <option value="B">Grade B</option>
+                                        <option value="C">Grade C</option>
+                                        <option value="D">Grade D</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Status and Permissions -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Status and Permissions</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                    <div class="flex flex-wrap gap-4">
+                                        <label class="flex items-center">
+                                            <input type="radio" name="status" value="active" checked class="mr-2">
+                                            <span class="flex items-center"><span class="status-dot bg-success"></span> Active</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="radio" name="status" value="inactive" class="mr-2">
+                                            <span class="flex items-center"><span class="status-dot bg-gray-400"></span> Inactive</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="radio" name="status" value="suspended" class="mr-2">
+                                            <span class="flex items-center"><span class="status-dot bg-danger"></span> Suspended</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="radio" name="status" value="on-leave" class="mr-2">
+                                            <span class="flex items-center"><span class="status-dot bg-secondary"></span> On Leave</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Access Level</label>
+                                    <select id="input-access-level" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green">
+                                        <option value="worker">Worker</option>
+                                        <option value="supervisor">Supervisor</option>
+                                        <option value="manager">Manager</option>
+                                        <option value="admin">Administrator</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Face Enrollment -->
+                        <div id="face-upload-section">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Face Enrollment</h4>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                                <i class="fas fa-camera text-4xl text-gray-400 mb-4"></i>
+                                <p class="text-gray-600 mb-2">Take multiple photos for better recognition</p>
+                                <p class="text-sm text-gray-500 mb-4">Position face in good lighting, looking straight at camera</p>
+                                <button type="button" id="capture-face-btn" class="px-4 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg">
+                                    <i class="fas fa-camera mr-2"></i> Capture Face
+                                </button>
+                                <button type="button" id="upload-face-btn" class="ml-3 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                    <i class="fas fa-upload mr-2"></i> Upload Photos
+                                </button>
+                            </div>
+                            <div id="face-preview" class="mt-4 grid grid-cols-3 gap-4 hidden"></div>
+                        </div>
+                        
+                        <!-- Emergency Contact -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Emergency Contact</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
+                                    <input type="text" id="input-emergency-name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Full name">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Contact Phone</label>
+                                    <input type="tel" id="input-emergency-phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Phone number">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Relationship</label>
+                                    <input type="text" id="input-emergency-relationship" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="e.g., Spouse, Parent, Sibling">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Additional Notes</h4>
+                            <textarea id="input-notes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-laberion-green/30 focus:border-laberion-green" placeholder="Any additional information about the worker..."></textarea>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                            <button type="button" id="cancel-modal" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200">
+                                Cancel
+                            </button>
+                            <button type="submit" id="save-worker-btn" class="px-6 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg transition duration-200">
+                                Save Worker
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Delete Confirmation Modal -->
+        <div id="delete-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-xl font-heading font-bold text-danger">Confirm Deletion</h3>
+                </div>
+                <div class="p-6">
+                    <div class="flex items-start mb-6">
+                        <i class="fas fa-exclamation-triangle text-danger text-2xl mr-3 mt-1"></i>
+                        <div>
+                            <p class="font-medium text-gray-800" id="delete-message">Are you sure you want to delete this worker?</p>
+                            <p class="text-gray-600 text-sm mt-1">This action cannot be undone.</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-4">
+                        <button id="cancel-delete" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button id="confirm-delete" class="px-6 py-2 bg-danger hover:bg-red-700 text-white rounded-lg">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick View Modal -->
+        <div id="quick-view-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-xl font-heading font-bold" id="quick-view-title">Worker Details</h3>
+                    <button id="close-quick-view" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div class="p-6" id="quick-view-content">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Layer
+        const appData = {
+            currentView: "list",
+            currentPage: 1,
+            itemsPerPage: 10,
+            selectedWorkers: new Set(),
+            departments: [
+                { "id": "production", "name": "Production" },
+                { "id": "packaging", "name": "Packaging" },
+                { "id": "quality", "name": "Quality Control" },
+                { "id": "logistics", "name": "Logistics" },
+                { "id": "maintenance", "name": "Maintenance" },
+                { "id": "administration", "name": "Administration" },
+                { "id": "hr", "name": "Human Resources" },
+                { "id": "finance", "name": "Finance" },
+                { "id": "sales", "name": "Sales & Marketing" },
+                { "id": "rnd", "name": "Research & Development" }
+            ],
+            navigationItems: [
+                { "id": "dashboard", "label": "Dashboard", "icon": "fas fa-tachometer-alt" },
+                { "id": "workers", "label": "Workers", "icon": "fas fa-users", "active": true },
+                { "id": "attendance", "label": "Attendance", "icon": "fas fa-calendar-check" },
+                { "id": "shifts", "label": "Shifts", "icon": "fas fa-clock" },
+                { "id": "leaves", "label": "Leaves", "icon": "fas fa-umbrella-beach" },
+                { "id": "reports", "label": "Reports", "icon": "fas fa-chart-bar" },
+                { "id": "devices", "label": "Devices", "icon": "fas fa-tablet-alt" },
+                { "id": "settings", "label": "Settings", "icon": "fas fa-cog" }
+            ],
+            workers: [
+                {
+                    "id": 1,
+                    "fullName": "Artan Berisha",
+                    "employeeCode": "LAB-001",
+                    "email": "artan@laberion.com",
+                    "phone": "+383 44 111 222",
+                    "dob": "1985-03-15",
+                    "gender": "male",
+                    "department": "production",
+                    "position": "Production Supervisor",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-03-15",
+                    "shift": "morning",
+                    "salaryGrade": "A",
+                    "status": "active",
+                    "accessLevel": "supervisor",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=101",
+                    "lastCheckIn": "2024-01-15 08:05:00",
+                    "emergencyContact": {
+                        "name": "Lum Berisha",
+                        "phone": "+383 44 111 223",
+                        "relationship": "Spouse"
+                    },
+                    "notes": "Excellent performance, 5 years experience in juice production."
+                },
+                {
+                    "id": 2,
+                    "fullName": "Lirije Gashi",
+                    "employeeCode": "LAB-002",
+                    "email": "lirije@laberion.com",
+                    "phone": "+383 44 222 333",
+                    "dob": "1990-05-20",
+                    "gender": "female",
+                    "department": "quality",
+                    "position": "Quality Inspector",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-05-20",
+                    "shift": "morning",
+                    "salaryGrade": "B",
+                    "status": "active",
+                    "accessLevel": "worker",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=102",
+                    "lastCheckIn": "2024-01-15 08:15:00",
+                    "emergencyContact": {
+                        "name": "Agim Gashi",
+                        "phone": "+383 44 222 334",
+                        "relationship": "Husband"
+                    },
+                    "notes": "Certified quality control specialist."
+                },
+                {
+                    "id": 3,
+                    "fullName": "Bekim Krasniqi",
+                    "employeeCode": "LAB-003",
+                    "email": "bekim@laberion.com",
+                    "phone": "+383 44 333 444",
+                    "dob": "1988-06-10",
+                    "gender": "male",
+                    "department": "packaging",
+                    "position": "Packaging Operator",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-06-10",
+                    "shift": "afternoon",
+                    "salaryGrade": "C",
+                    "status": "active",
+                    "accessLevel": "worker",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=103",
+                    "lastCheckIn": "2024-01-15 08:20:00",
+                    "emergencyContact": {
+                        "name": "Mirlinda Krasniqi",
+                        "phone": "+383 44 333 445",
+                        "relationship": "Wife"
+                    },
+                    "notes": "Fast and efficient packaging operator."
+                },
+                {
+                    "id": 4,
+                    "fullName": "Valmira Shala",
+                    "employeeCode": "LAB-004",
+                    "email": "valmira@laberion.com",
+                    "phone": "+383 44 444 555",
+                    "dob": "1992-07-05",
+                    "gender": "female",
+                    "department": "logistics",
+                    "position": "Logistics Coordinator",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-07-05",
+                    "shift": "morning",
+                    "salaryGrade": "B",
+                    "status": "active",
+                    "accessLevel": "supervisor",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=104",
+                    "lastCheckIn": "2024-01-15 08:10:00",
+                    "emergencyContact": {
+                        "name": "Dritan Shala",
+                        "phone": "+383 44 444 556",
+                        "relationship": "Brother"
+                    },
+                    "notes": "Excellent organizational skills."
+                },
+                {
+                    "id": 5,
+                    "fullName": "Driton Morina",
+                    "employeeCode": "LAB-005",
+                    "email": "driton@laberion.com",
+                    "phone": "+383 44 555 666",
+                    "dob": "1983-08-15",
+                    "gender": "male",
+                    "department": "maintenance",
+                    "position": "Maintenance Technician",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-08-15",
+                    "shift": "flexible",
+                    "salaryGrade": "B",
+                    "status": "active",
+                    "accessLevel": "worker",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=105",
+                    "lastCheckIn": "2024-01-15 08:25:00",
+                    "emergencyContact": {
+                        "name": "Arta Morina",
+                        "phone": "+383 44 555 667",
+                        "relationship": "Wife"
+                    },
+                    "notes": "Certified electrician and mechanic."
+                },
+                {
+                    "id": 6,
+                    "fullName": "Arta Rexhepi",
+                    "employeeCode": "LAB-006",
+                    "email": "arta@laberion.com",
+                    "phone": "+383 44 666 777",
+                    "dob": "1991-09-01",
+                    "gender": "female",
+                    "department": "administration",
+                    "position": "HR Administrator",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-09-01",
+                    "shift": "morning",
+                    "salaryGrade": "A",
+                    "status": "active",
+                    "accessLevel": "manager",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=106",
+                    "lastCheckIn": "2024-01-15 08:30:00",
+                    "emergencyContact": {
+                        "name": "Fisnik Rexhepi",
+                        "phone": "+383 44 666 778",
+                        "relationship": "Husband"
+                    },
+                    "notes": "Handles recruitment and employee relations."
+                },
+                {
+                    "id": 7,
+                    "fullName": "Fisnik Aliu",
+                    "employeeCode": "LAB-007",
+                    "email": "fisnik@laberion.com",
+                    "phone": "+383 44 777 888",
+                    "dob": "1987-10-10",
+                    "gender": "male",
+                    "department": "production",
+                    "position": "Juice Production Specialist",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-10-10",
+                    "shift": "morning",
+                    "salaryGrade": "C",
+                    "status": "active",
+                    "accessLevel": "worker",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=107",
+                    "lastCheckIn": "2024-01-15 08:00:00",
+                    "emergencyContact": {
+                        "name": "Valbona Aliu",
+                        "phone": "+383 44 777 889",
+                        "relationship": "Sister"
+                    },
+                    "notes": "Expert in fruit juice extraction processes."
+                },
+                {
+                    "id": 8,
+                    "fullName": "Blerta Hoxha",
+                    "employeeCode": "LAB-008",
+                    "email": "blerta@laberion.com",
+                    "phone": "+383 44 888 999",
+                    "dob": "1993-11-15",
+                    "gender": "female",
+                    "department": "quality",
+                    "position": "Lab Technician",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-11-15",
+                    "shift": "morning",
+                    "salaryGrade": "C",
+                    "status": "inactive",
+                    "accessLevel": "worker",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=108",
+                    "lastCheckIn": "2024-01-14 08:15:00",
+                    "emergencyContact": {
+                        "name": "Kushtrim Hoxha",
+                        "phone": "+383 44 888 990",
+                        "relationship": "Father"
+                    },
+                    "notes": "Currently on maternity leave."
+                },
+                {
+                    "id": 9,
+                    "fullName": "Kushtrim Thaçi",
+                    "employeeCode": "LAB-009",
+                    "email": "kushtrim@laberion.com",
+                    "phone": "+383 44 999 000",
+                    "dob": "1986-12-01",
+                    "gender": "male",
+                    "department": "packaging",
+                    "position": "Packaging Supervisor",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-12-01",
+                    "shift": "afternoon",
+                    "salaryGrade": "B",
+                    "status": "active",
+                    "accessLevel": "supervisor",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=109",
+                    "lastCheckIn": "2024-01-15 08:18:00",
+                    "emergencyContact": {
+                        "name": "Elona Thaçi",
+                        "phone": "+383 44 999 001",
+                        "relationship": "Wife"
+                    },
+                    "notes": "Manages packaging team of 8 workers."
+                },
+                {
+                    "id": 10,
+                    "fullName": "Elona Bajrami",
+                    "employeeCode": "LAB-010",
+                    "email": "elona@laberion.com",
+                    "phone": "+383 44 000 111",
+                    "dob": "1994-01-05",
+                    "gender": "female",
+                    "department": "logistics",
+                    "position": "Warehouse Manager",
+                    "employmentType": "full-time",
+                    "joinDate": "2024-01-05",
+                    "shift": "morning",
+                    "salaryGrade": "A",
+                    "status": "active",
+                    "accessLevel": "manager",
+                    "faceEnrolled": false,
+                    "photo": "https://picsum.photos/200?random=110",
+                    "lastCheckIn": "2024-01-15 08:22:00",
+                    "emergencyContact": {
+                        "name": "Artan Bajrami",
+                        "phone": "+383 44 000 112",
+                        "relationship": "Husband"
+                    },
+                    "notes": "New hire, needs face enrollment."
+                },
+                {
+                    "id": 11,
+                    "fullName": "Genc Demaku",
+                    "employeeCode": "LAB-011",
+                    "email": "genc@laberion.com",
+                    "phone": "+383 44 111 333",
+                    "dob": "1989-02-14",
+                    "gender": "male",
+                    "department": "maintenance",
+                    "position": "Equipment Technician",
+                    "employmentType": "full-time",
+                    "joinDate": "2024-01-10",
+                    "shift": "night",
+                    "salaryGrade": "C",
+                    "status": "active",
+                    "accessLevel": "worker",
+                    "faceEnrolled": false,
+                    "photo": "https://picsum.photos/200?random=111",
+                    "lastCheckIn": "2024-01-15 00:05:00",
+                    "emergencyContact": {
+                        "name": "Liridona Demaku",
+                        "phone": "+383 44 111 334",
+                        "relationship": "Wife"
+                    },
+                    "notes": "Night shift maintenance specialist."
+                },
+                {
+                    "id": 12,
+                    "fullName": "Donika Berisha",
+                    "employeeCode": "LAB-012",
+                    "email": "donika@laberion.com",
+                    "phone": "+383 44 222 444",
+                    "dob": "1995-03-25",
+                    "gender": "female",
+                    "department": "sales",
+                    "position": "Sales Representative",
+                    "employmentType": "full-time",
+                    "joinDate": "2024-01-12",
+                    "shift": "flexible",
+                    "salaryGrade": "B",
+                    "status": "active",
+                    "accessLevel": "worker",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=112",
+                    "lastCheckIn": "2024-01-15 09:00:00",
+                    "emergencyContact": {
+                        "name": "Bekim Berisha",
+                        "phone": "+383 44 222 445",
+                        "relationship": "Brother"
+                    },
+                    "notes": "Field sales, often works remotely."
+                },
+                {
+                    "id": 13,
+                    "fullName": "Arben Krasniqi",
+                    "employeeCode": "LAB-013",
+                    "email": "arben@laberion.com",
+                    "phone": "+383 44 333 555",
+                    "dob": "1984-04-30",
+                    "gender": "male",
+                    "department": "production",
+                    "position": "Production Line Manager",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-04-15",
+                    "shift": "morning",
+                    "salaryGrade": "A",
+                    "status": "suspended",
+                    "accessLevel": "manager",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=113",
+                    "lastCheckIn": "2024-01-10 08:00:00",
+                    "emergencyContact": {
+                        "name": "Valdete Krasniqi",
+                        "phone": "+383 44 333 556",
+                        "relationship": "Wife"
+                    },
+                    "notes": "Suspended pending investigation."
+                },
+                {
+                    "id": 14,
+                    "fullName": "Lumturije Morina",
+                    "employeeCode": "LAB-014",
+                    "email": "lumturije@laberion.com",
+                    "phone": "+383 44 444 666",
+                    "dob": "1990-05-15",
+                    "gender": "female",
+                    "department": "hr",
+                    "position": "Recruitment Specialist",
+                    "employmentType": "part-time",
+                    "joinDate": "2023-08-20",
+                    "shift": "morning",
+                    "salaryGrade": "B",
+                    "status": "active",
+                    "accessLevel": "worker",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=114",
+                    "lastCheckIn": "2024-01-15 08:45:00",
+                    "emergencyContact": {
+                        "name": "Agron Morina",
+                        "phone": "+383 44 444 667",
+                        "relationship": "Husband"
+                    },
+                    "notes": "Part-time, works 3 days per week."
+                },
+                {
+                    "id": 15,
+                    "fullName": "Flamur Gashi",
+                    "employeeCode": "LAB-015",
+                    "email": "flamur@laberion.com",
+                    "phone": "+383 44 555 777",
+                    "dob": "1987-06-20",
+                    "gender": "male",
+                    "department": "rnd",
+                    "position": "Product Developer",
+                    "employmentType": "full-time",
+                    "joinDate": "2023-07-10",
+                    "shift": "flexible",
+                    "salaryGrade": "A",
+                    "status": "on-leave",
+                    "accessLevel": "manager",
+                    "faceEnrolled": true,
+                    "photo": "https://picsum.photos/200?random=115",
+                    "lastCheckIn": "2024-01-10 09:30:00",
+                    "emergencyContact": {
+                        "name": "Arta Gashi",
+                        "phone": "+383 44 555 778",
+                        "relationship": "Wife"
+                    },
+                    "notes": "On vacation until February 1st."
+                }
+            ],
+            attendanceRecords: [
+                { "workerId": 1, "date": "2024-01-15", "status": "present" },
+                { "workerId": 2, "date": "2024-01-15", "status": "present" },
+                { "workerId": 3, "date": "2024-01-15", "status": "present" },
+                { "workerId": 4, "date": "2024-01-15", "status": "present" },
+                { "workerId": 5, "date": "2024-01-15", "status": "present" },
+                { "workerId": 6, "date": "2024-01-15", "status": "present" },
+                { "workerId": 7, "date": "2024-01-15", "status": "present" },
+                { "workerId": 8, "date": "2024-01-15", "status": "absent" },
+                { "workerId": 9, "date": "2024-01-15", "status": "present" },
+                { "workerId": 10, "date": "2024-01-15", "status": "present" },
+                { "workerId": 11, "date": "2024-01-15", "status": "present" },
+                { "workerId": 12, "date": "2024-01-15", "status": "present" },
+                { "workerId": 13, "date": "2024-01-15", "status": "absent" },
+                { "workerId": 14, "date": "2024-01-15", "status": "present" },
+                { "workerId": 15, "date": "2024-01-15", "status": "absent" }
+            ]
+        };
+
+        // Reusable Render Functions
+        function renderNavigationItems(items) {
+            return items.map(item => 
+                "<li><a href=\"#\" data-nav=\"" + item.id + "\" class=\"flex items-center py-3 px-4 rounded-lg transition duration-200 " + (item.active ? "bg-white/10 text-white" : "text-white/70 hover:text-white hover:bg-white/5") + "\"><i class=\"" + item.icon + " mr-3 w-5 text-center\"></i>" + item.label + "</a></li>"
+            ).join("");
+        }
+
+        function renderDepartmentsSelect(selected = "") {
+            return appData.departments.map(dept => 
+                "<option value=\"" + dept.id + "\" " + (dept.id === selected ? "selected" : "") + ">" + dept.name + "</option>"
+            ).join("");
+        }
+
+        function renderWorkersTable(workers) {
+            if (workers.length === 0) {
+                return "<tr><td colspan=\"8\" class=\"py-12 text-center\"><div class=\"empty-state\"><i class=\"fas fa-users text-4xl text-gray-300 mb-4\"></i><p class=\"text-gray-500\">No workers found</p></div></td></tr>";
+            }
+            
+            return workers.map(worker => {
+                const statusClass = worker.status === "active" ? "bg-success/20 text-success" : 
+                                  worker.status === "inactive" ? "bg-gray-200 text-gray-700" : 
+                                  worker.status === "suspended" ? "bg-danger/20 text-danger" : 
+                                  "bg-secondary/20 text-secondary";
+                const statusText = worker.status.charAt(0).toUpperCase() + worker.status.slice(1);
+                const department = appData.departments.find(d => d.id === worker.department)?.name || worker.department;
+                const faceEnrolledClass = worker.faceEnrolled ? "bg-success/20 text-success" : "bg-warning/20 text-warning";
+                const faceEnrolledText = worker.faceEnrolled ? "Enrolled" : "Not Enrolled";
+                const lastCheckIn = worker.lastCheckIn ? formatTime(worker.lastCheckIn) : "Never";
+                
+                return "<tr class=\"table-row-hover fade-in\">" +
+                    "<td class=\"py-4 px-6\"><input type=\"checkbox\" class=\"worker-checkbox rounded\" data-id=\"" + worker.id + "\"></td>" +
+                    "<td class=\"py-4 px-6\"><div class=\"flex items-center\"><img src=\"" + worker.photo + "\" alt=\"" + worker.fullName + "\" class=\"worker-avatar mr-3\"><div><p class=\"font-medium\">" + worker.fullName + "</p><p class=\"text-sm text-gray-500\">" + worker.position + "</p></div></div></td>" +
+                    "<td class=\"py-4 px-6\"><span class=\"font-mono text-sm bg-gray-100 px-2 py-1 rounded\">" + worker.employeeCode + "</span></td>" +
+                    "<td class=\"py-4 px-6\">" + department + "</td>" +
+                    "<td class=\"py-4 px-6\"><span class=\"attendance-badge " + statusClass + "\">" + statusText + "</span></td>" +
+                    "<td class=\"py-4 px-6\"><span class=\"attendance-badge " + faceEnrolledClass + "\">" + faceEnrolledText + "</span></td>" +
+                    "<td class=\"py-4 px-6\">" + lastCheckIn + "</td>" +
+                    "<td class=\"py-4 px-6\">" +
+                        "<div class=\"flex space-x-2\">" +
+                            "<button class=\"text-accent hover:text-blue-700 view-worker-btn\" data-id=\"" + worker.id + "\" title=\"View\"><i class=\"fas fa-eye\"></i></button>" +
+                            "<button class=\"text-secondary hover:text-orange-700 edit-worker-btn\" data-id=\"" + worker.id + "\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>" +
+                            "<button class=\"text-laberion-green hover:text-green-700 enroll-face-btn\" data-id=\"" + worker.id + "\" title=\"Enroll Face\"><i class=\"fas fa-camera\"></i></button>" +
+                            "<button class=\"text-danger hover:text-red-700 delete-worker-btn\" data-id=\"" + worker.id + "\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>" +
+                        "</div>" +
+                    "</td>" +
+                "</tr>";
+            }).join("");
+        }
+
+        function renderWorkersGrid(workers) {
+            if (workers.length === 0) {
+                return "<div class=\"col-span-full text-center py-12\"><div class=\"empty-state\"><i class=\"fas fa-users text-5xl text-gray-300 mb-4\"></i><p class=\"text-gray-500\">No workers found</p></div></div>";
+            }
+            
+            return workers.map(worker => {
+                const statusClass = worker.status === "active" ? "bg-success/20 text-success" : 
+                                  worker.status === "inactive" ? "bg-gray-200 text-gray-700" : 
+                                  worker.status === "suspended" ? "bg-danger/20 text-danger" : 
+                                  "bg-secondary/20 text-secondary";
+                const statusText = worker.status.charAt(0).toUpperCase() + worker.status.slice(1);
+                const department = appData.departments.find(d => d.id === worker.department)?.name || worker.department;
+                const faceEnrolledClass = worker.faceEnrolled ? "bg-success/20 text-success" : "bg-warning/20 text-warning";
+                const faceEnrolledText = worker.faceEnrolled ? "Enrolled" : "Not Enrolled";
+                
+                return "<div class=\"bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden slide-in\">" +
+                    "<div class=\"p-4 border-b border-gray-100 flex items-center justify-between\">" +
+                        "<div class=\"flex items-center\">" +
+                            "<input type=\"checkbox\" class=\"worker-checkbox rounded\" data-id=\"" + worker.id + "\">" +
+                            "<span class=\"ml-3 font-mono text-sm text-gray-600\">" + worker.employeeCode + "</span>" +
+                        "</div>" +
+                        "<span class=\"attendance-badge " + statusClass + "\">" + statusText + "</span>" +
+                    "</div>" +
+                    "<div class=\"p-4 text-center\">" +
+                        "<img src=\"" + worker.photo + "\" alt=\"" + worker.fullName + "\" class=\"w-24 h-24 rounded-full mx-auto mb-4 object-cover\">" +
+                        "<h4 class=\"font-bold text-lg mb-1\">" + worker.fullName + "</h4>" +
+                        "<p class=\"text-gray-600 text-sm mb-2\">" + worker.position + "</p>" +
+                        "<p class=\"text-gray-500 text-xs mb-3\">" + department + "</p>" +
+                        "<div class=\"flex justify-center mb-4\">" +
+                            "<span class=\"attendance-badge " + faceEnrolledClass + "\">" + faceEnrolledText + "</span>" +
+                        "</div>" +
+                    "</div>" +
+                    "<div class=\"px-4 py-3 bg-gray-50 border-t border-gray-100 flex justify-between\">" +
+                        "<button class=\"text-accent hover:text-blue-700 view-worker-btn\" data-id=\"" + worker.id + "\" title=\"View\"><i class=\"fas fa-eye\"></i></button>" +
+                        "<button class=\"text-secondary hover:text-orange-700 edit-worker-btn\" data-id=\"" + worker.id + "\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>" +
+                        "<button class=\"text-laberion-green hover:text-green-700 enroll-face-btn\" data-id=\"" + worker.id + "\" title=\"Enroll Face\"><i class=\"fas fa-camera\"></i></button>" +
+                        "<button class=\"text-danger hover:text-red-700 delete-worker-btn\" data-id=\"" + worker.id + "\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>" +
+                    "</div>" +
+                "</div>";
+            }).join("");
+        }
+
+        function renderQuickView(worker) {
+            const department = appData.departments.find(d => d.id === worker.department)?.name || worker.department;
+            const statusClass = worker.status === "active" ? "bg-success/20 text-success" : 
+                              worker.status === "inactive" ? "bg-gray-200 text-gray-700" : 
+                              worker.status === "suspended" ? "bg-danger/20 text-danger" : 
+                              "bg-secondary/20 text-secondary";
+            const statusText = worker.status.charAt(0).toUpperCase() + worker.status.slice(1);
+            const faceEnrolledClass = worker.faceEnrolled ? "bg-success/20 text-success" : "bg-warning/20 text-warning";
+            const faceEnrolledText = worker.faceEnrolled ? "Enrolled" : "Not Enrolled";
+            const genderText = worker.gender === "male" ? "Male" : worker.gender === "female" ? "Female" : worker.gender === "other" ? "Other" : "Prefer not to say";
+            const employmentTypeText = worker.employmentType === "full-time" ? "Full Time" : 
+                                     worker.employmentType === "part-time" ? "Part Time" : 
+                                     worker.employmentType === "contract" ? "Contract" : "Temporary";
+            const shiftText = worker.shift === "morning" ? "Morning (8:00 - 16:00)" : 
+                            worker.shift === "afternoon" ? "Afternoon (16:00 - 00:00)" : 
+                            worker.shift === "night" ? "Night (00:00 - 8:00)" : "Flexible";
+            const accessLevelText = worker.accessLevel === "worker" ? "Worker" : 
+                                  worker.accessLevel === "supervisor" ? "Supervisor" : 
+                                  worker.accessLevel === "manager" ? "Manager" : "Administrator";
+            
+            return "<div class=\"space-y-6\">" +
+                "<div class=\"flex flex-col md:flex-row gap-6\">" +
+                    "<div class=\"md:w-1/3\">" +
+                        "<div class=\"text-center\">" +
+                            "<img src=\"" + worker.photo + "\" alt=\"" + worker.fullName + "\" class=\"w-32 h-32 rounded-full mx-auto mb-4 object-cover\">" +
+                            "<h4 class=\"font-bold text-xl mb-2\">" + worker.fullName + "</h4>" +
+                            "<p class=\"text-gray-600 mb-3\">" + worker.position + "</p>" +
+                            "<div class=\"flex justify-center space-x-2 mb-4\">" +
+                                "<span class=\"attendance-badge " + statusClass + "\">" + statusText + "</span>" +
+                                "<span class=\"attendance-badge " + faceEnrolledClass + "\">" + faceEnrolledText + "</span>" +
+                            "</div>" +
+                        "</div>" +
+                    "</div>" +
+                    "<div class=\"md:w-2/3\">" +
+                        "<div class=\"grid grid-cols-1 md:grid-cols-2 gap-4\">" +
+                            "<div><p class=\"text-sm text-gray-500\">Employee Code</p><p class=\"font-medium\">" + worker.employeeCode + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Department</p><p class=\"font-medium\">" + department + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Email</p><p class=\"font-medium\">" + (worker.email || "Not provided") + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Phone</p><p class=\"font-medium\">" + (worker.phone || "Not provided") + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Gender</p><p class=\"font-medium\">" + genderText + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Date of Birth</p><p class=\"font-medium\">" + (worker.dob ? formatDate(worker.dob) : "Not provided") + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Employment Type</p><p class=\"font-medium\">" + employmentTypeText + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Join Date</p><p class=\"font-medium\">" + (worker.joinDate ? formatDate(worker.joinDate) : "Not provided") + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Shift</p><p class=\"font-medium\">" + shiftText + "</p></div>" +
+                            "<div><p class=\"text-sm text-gray-500\">Access Level</p><p class=\"font-medium\">" + accessLevelText + "</p></div>" +
+                        "</div>" +
+                    "</div>" +
+                "</div>" +
+                
+                (worker.emergencyContact ? 
+                "<div class=\"border-t border-gray-200 pt-6\">" +
+                    "<h5 class=\"font-semibold text-gray-800 mb-3\">Emergency Contact</h5>" +
+                    "<div class=\"grid grid-cols-1 md:grid-cols-3 gap-4\">" +
+                        "<div><p class=\"text-sm text-gray-500\">Name</p><p class=\"font-medium\">" + worker.emergencyContact.name + "</p></div>" +
+                        "<div><p class=\"text-sm text-gray-500\">Phone</p><p class=\"font-medium\">" + worker.emergencyContact.phone + "</p></div>" +
+                        "<div><p class=\"text-sm text-gray-500\">Relationship</p><p class=\"font-medium\">" + worker.emergencyContact.relationship + "</p></div>" +
+                    "</div>" +
+                "</div>" : "") +
+                
+                (worker.notes ? 
+                "<div class=\"border-t border-gray-200 pt-6\">" +
+                    "<h5 class=\"font-semibold text-gray-800 mb-3\">Notes</h5>" +
+                    "<p class=\"text-gray-700 bg-gray-50 p-4 rounded-lg\">" + worker.notes + "</p>" +
+                "</div>" : "") +
+                
+                "<div class=\"border-t border-gray-200 pt-6 flex justify-end space-x-3\">" +
+                    "<button class=\"px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 edit-worker-btn\" data-id=\"" + worker.id + "\">" +
+                        "<i class=\"fas fa-edit mr-2\"></i> Edit" +
+                    "</button>" +
+                    "<button class=\"px-4 py-2 bg-laberion-green hover:bg-green-700 text-white rounded-lg enroll-face-btn\" data-id=\"" + worker.id + "\">" +
+                        "<i class=\"fas fa-camera mr-2\"></i> " + (worker.faceEnrolled ? "Re-enroll Face" : "Enroll Face") +
+                    "</button>" +
+                "</div>" +
+            "</div>";
+        }
+
+        function renderPagination(totalPages, currentPage) {
+            let pages = "";
+            const maxVisiblePages = 5;
+            
+            if (totalPages <= maxVisiblePages) {
+                for (let i = 1; i <= totalPages; i++) {
+                    pages += "<button class=\"px-3 py-1 border rounded text-sm pagination-btn " + (i === currentPage ? "pagination-active" : "border-gray-300") + "\" data-page=\"" + i + "\">" + i + "</button>";
+                }
+            } else {
+                // Always show first page
+                pages += "<button class=\"px-3 py-1 border border-gray-300 rounded text-sm pagination-btn " + (1 === currentPage ? "pagination-active" : "") + "\" data-page=\"1\">1</button>";
+                
+                // Calculate start and end of visible pages
+                let start = Math.max(2, currentPage - 1);
+                let end = Math.min(totalPages - 1, currentPage + 1);
+                
+                // Adjust if at the beginning
+                if (currentPage <= 3) {
+                    start = 2;
+                    end = 4;
+                }
+                
+                // Adjust if at the end
+                if (currentPage >= totalPages - 2) {
+                    start = totalPages - 3;
+                    end = totalPages - 1;
+                }
+                
+                // Add ellipsis if needed
+                if (start > 2) {
+                    pages += "<span class=\"px-2\">...</span>";
+                }
+                
+                // Add middle pages
+                for (let i = start; i <= end; i++) {
+                    pages += "<button class=\"px-3 py-1 border rounded text-sm pagination-btn " + (i === currentPage ? "pagination-active" : "border-gray-300") + "\" data-page=\"" + i + "\">" + i + "</button>";
+                }
+                
+                // Add ellipsis if needed
+                if (end < totalPages - 1) {
+                    pages += "<span class=\"px-2\">...</span>";
+                }
+                
+                // Always show last page
+                pages += "<button class=\"px-3 py-1 border border-gray-300 rounded text-sm pagination-btn " + (totalPages === currentPage ? "pagination-active" : "") + "\" data-page=\"" + totalPages + "\">" + totalPages + "</button>";
+            }
+            
+            return pages;
+        }
+
+        function renderActiveFilters(filters) {
+            const activeFiltersDiv = document.getElementById("active-filters");
+            if (!filters || Object.keys(filters).length === 0) {
+                activeFiltersDiv.classList.add("hidden");
+                return;
+            }
+            
+            let html = "<span class=\"text-sm text-gray-600\">Active filters:</span>";
+            
+            if (filters.department) {
+                const deptName = appData.departments.find(d => d.id === filters.department)?.name || filters.department;
+                html += "<span class=\"inline-flex items-center px-3 py-1 rounded-full text-sm bg-laberion-green/10 text-laberion-green\">" + deptName + " <button class=\"ml-2 text-laberion-green hover:text-green-700 remove-filter\" data-filter=\"department\">&times;</button></span>";
+            }
+            
+            if (filters.status) {
+                html += "<span class=\"inline-flex items-center px-3 py-1 rounded-full text-sm bg-accent/10 text-accent\">" + filters.status.charAt(0).toUpperCase() + filters.status.slice(1) + " <button class=\"ml-2 text-accent hover:text-blue-700 remove-filter\" data-filter=\"status\">&times;</button></span>";
+            }
+            
+            if (filters.faceEnrolled) {
+                const text = filters.faceEnrolled === "enrolled" ? "Face Enrolled" : "Face Not Enrolled";
+                html += "<span class=\"inline-flex items-center px-3 py-1 rounded-full text-sm bg-secondary/10 text-secondary\">" + text + " <button class=\"ml-2 text-secondary hover:text-orange-700 remove-filter\" data-filter=\"faceEnrolled\">&times;</button></span>";
+            }
+            
+            if (filters.search) {
+                html += "<span class=\"inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-200 text-gray-700\">Search: " + filters.search + " <button class=\"ml-2 text-gray-600 hover:text-gray-800 remove-filter\" data-filter=\"search\">&times;</button></span>";
+            }
+            
+            activeFiltersDiv.innerHTML = html;
+            activeFiltersDiv.classList.remove("hidden");
+        }
+
+        // Utility Functions
+        function formatTime(dateTimeStr) {
+            if (!dateTimeStr) return "";
+            const date = new Date(dateTimeStr);
+            return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return "";
+            const date = new Date(dateStr);
+            return date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            const dateStr = now.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+            
+            document.getElementById("current-time").textContent = timeStr;
+            document.getElementById("current-date").textContent = dateStr;
+        }
+
+        function getFilteredWorkers() {
+            const searchTerm = document.getElementById("search-workers").value.toLowerCase();
+            const departmentFilter = document.getElementById("filter-department").value;
+            const statusFilter = document.getElementById("filter-status").value;
+            const faceEnrolledFilter = document.getElementById("filter-face-enrolled").value;
+            
+            return appData.workers.filter(worker => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    worker.fullName.toLowerCase().includes(searchTerm) ||
+                    worker.employeeCode.toLowerCase().includes(searchTerm) ||
+                    worker.position.toLowerCase().includes(searchTerm) ||
+                    (worker.email && worker.email.toLowerCase().includes(searchTerm));
+                
+                // Department filter
+                const matchesDepartment = !departmentFilter || worker.department === departmentFilter;
+                
+                // Status filter
+                const matchesStatus = !statusFilter || worker.status === statusFilter;
+                
+                // Face enrolled filter
+                const matchesFaceEnrolled = !faceEnrolledFilter || 
+                    (faceEnrolledFilter === "enrolled" && worker.faceEnrolled) ||
+                    (faceEnrolledFilter === "not-enrolled" && !worker.faceEnrolled);
+                
+                return matchesSearch && matchesDepartment && matchesStatus && matchesFaceEnrolled;
+            });
+        }
+
+        function updateStats() {
+            const filteredWorkers = getFilteredWorkers();
+            const totalWorkers = filteredWorkers.length;
+            const activeWorkers = filteredWorkers.filter(w => w.status === "active").length;
+            const enrolledWorkers = filteredWorkers.filter(w => w.faceEnrolled).length;
+            const onLeaveWorkers = filteredWorkers.filter(w => w.status === "on-leave").length;
+            
+            // Calculate attendance rate for last 30 days (simplified)
+            const presentCount = appData.attendanceRecords.filter(r => r.status === "present").length;
+            const totalRecords = appData.attendanceRecords.length;
+            const attendanceRate = totalRecords > 0 ? Math.round((presentCount / totalRecords) * 100) : 0;
+            
+            // Calculate leave this week (simplified)
+            const leaveThisWeek = onLeaveWorkers; // In real app, would filter by date
+            
+            document.getElementById("total-workers-count").textContent = totalWorkers;
+            document.getElementById("stats-total").textContent = totalWorkers;
+            document.getElementById("stats-active").textContent = activeWorkers;
+            document.getElementById("stats-enrolled").textContent = enrolledWorkers;
+            document.getElementById("stats-enrollment-rate").textContent = totalWorkers > 0 ? Math.round((enrolledWorkers / totalWorkers) * 100) + "%" : "0%";
+            document.getElementById("stats-leave").textContent = onLeaveWorkers;
+            document.getElementById("stats-leave-this-week").textContent = leaveThisWeek;
+            document.getElementById("stats-attendance").textContent = attendanceRate + "%";
+        }
+
+        function renderWorkers() {
+            const filteredWorkers = getFilteredWorkers();
+            const totalWorkers = filteredWorkers.length;
+            const totalPages = Math.ceil(totalWorkers / appData.itemsPerPage);
+            
+            // Update pagination
+            appData.currentPage = Math.min(appData.currentPage, totalPages || 1);
+            
+            // Get current page workers
+            const startIndex = (appData.currentPage - 1) * appData.itemsPerPage;
+            const endIndex = startIndex + appData.itemsPerPage;
+            const currentWorkers = filteredWorkers.slice(startIndex, endIndex);
+            
+            // Update UI based on view mode
+            if (appData.currentView === "list") {
+                document.getElementById("list-view").classList.remove("hidden");
+                document.getElementById("grid-view").classList.add("hidden");
+                document.getElementById("workers-table-body").innerHTML = renderWorkersTable(currentWorkers);
+            } else {
+                document.getElementById("list-view").classList.add("hidden");
+                document.getElementById("grid-view").classList.remove("hidden");
+                document.getElementById("workers-grid").innerHTML = renderWorkersGrid(currentWorkers);
+            }
+            
+            // Update pagination controls
+            document.getElementById("current-page").textContent = appData.currentPage;
+            document.getElementById("total-pages").textContent = totalPages || 1;
+            document.getElementById("page-numbers").innerHTML = renderPagination(totalPages, appData.currentPage);
+            
+            // Update button states
+            document.getElementById("first-page").disabled = appData.currentPage === 1;
+            document.getElementById("prev-page").disabled = appData.currentPage === 1;
+            document.getElementById("next-page").disabled = appData.currentPage === totalPages || totalPages === 0;
+            document.getElementById("last-page").disabled = appData.currentPage === totalPages || totalPages === 0;
+            
+            // Update summary
+            const showingCount = currentWorkers.length;
+            const totalCount = filteredWorkers.length;
+            document.getElementById("table-summary").textContent = `Showing ${showingCount} of ${totalCount} workers`;
+            document.getElementById("total-count").textContent = totalCount;
+            
+            // Show/hide empty state
+            if (totalWorkers === 0) {
+                document.getElementById("empty-state").classList.remove("hidden");
+                document.getElementById("loading-state").classList.add("hidden");
+            } else {
+                document.getElementById("empty-state").classList.add("hidden");
+                document.getElementById("loading-state").classList.add("hidden");
+            }
+            
+            // Update selected count
+            updateSelectedCount();
+            
+            // Update active filters display
+            const filters = {
+                department: document.getElementById("filter-department").value,
+                status: document.getElementById("filter-status").value,
+                faceEnrolled: document.getElementById("filter-face-enrolled").value,
+                search: document.getElementById("search-workers").value
+            };
+            renderActiveFilters(filters);
+        }
+
+        function updateSelectedCount() {
+            const selectedCount = appData.selectedWorkers.size;
+            document.getElementById("selected-count").textContent = selectedCount;
+            document.getElementById("bulk-selected-count").textContent = selectedCount;
+            
+            // Show/hide bulk actions bar
+            const bulkBar = document.getElementById("bulk-actions-bar");
+            if (selectedCount > 0) {
+                bulkBar.classList.remove("hidden");
+            } else {
+                bulkBar.classList.add("hidden");
+            }
+        }
+
+        function showAddWorkerModal(worker = null) {
+            const modal = document.getElementById("worker-modal");
+            const title = document.getElementById("modal-title");
+            const form = document.getElementById("worker-form");
+            
+            // Set today's date as default join date
+            const today = new Date().toISOString().split("T")[0];
+            document.getElementById("input-join-date").value = today;
+            
+            if (worker) {
+                // Edit mode
+                title.textContent = "Edit Worker";
+                document.getElementById("input-name").value = worker.fullName;
+                document.getElementById("input-code").value = worker.employeeCode;
+                document.getElementById("input-email").value = worker.email || "";
+                document.getElementById("input-phone").value = worker.phone || "";
+                document.getElementById("input-dob").value = worker.dob || "";
+                document.getElementById("input-gender").value = worker.gender || "";
+                document.getElementById("input-department").value = worker.department;
+                document.getElementById("input-position").value = worker.position;
+                document.getElementById("input-employment-type").value = worker.employmentType || "full-time";
+                document.getElementById("input-join-date").value = worker.joinDate || today;
+                document.getElementById("input-shift").value = worker.shift || "morning";
+                document.getElementById("input-salary-grade").value = worker.salaryGrade || "B";
+                document.getElementById("input-access-level").value = worker.accessLevel || "worker";
+                document.getElementById("input-emergency-name").value = worker.emergencyContact?.name || "";
+                document.getElementById("input-emergency-phone").value = worker.emergencyContact?.phone || "";
+                document.getElementById("input-emergency-relationship").value = worker.emergencyContact?.relationship || "";
+                document.getElementById("input-notes").value = worker.notes || "";
+                
+                // Set status radio
+                document.querySelector(`input[name="status"][value="${worker.status}"]`).checked = true;
+                
+                form.dataset.mode = "edit";
+                form.dataset.workerId = worker.id;
+            } else {
+                // Add mode
+                title.textContent = "Add New Worker";
+                form.reset();
+                document.getElementById("input-join-date").value = today;
+                document.getElementById("input-department").innerHTML = 
+                    "<option value=\"\">Select Department</option>" + renderDepartmentsSelect();
+                form.dataset.mode = "add";
+                delete form.dataset.workerId;
+            }
+            
+            modal.classList.remove("hidden");
+        }
+
+        function showDeleteModal(workerId, bulk = false) {
+            const modal = document.getElementById("delete-modal");
+            const message = document.getElementById("delete-message");
+            
+            if (bulk) {
+                message.textContent = `Are you sure you want to delete ${appData.selectedWorkers.size} selected workers?`;
+                modal.dataset.bulk = "true";
+            } else {
+                const worker = appData.workers.find(w => w.id === workerId);
+                message.textContent = `Are you sure you want to delete ${worker?.fullName}?`;
+                modal.dataset.workerId = workerId;
+                modal.dataset.bulk = "false";
+            }
+            
+            modal.classList.remove("hidden");
+        }
+
+        function showQuickView(workerId) {
+            const modal = document.getElementById("quick-view-modal");
+            const worker = appData.workers.find(w => w.id === workerId);
+            
+            if (!worker) return;
+            
+            document.getElementById("quick-view-title").textContent = worker.fullName;
+            document.getElementById("quick-view-content").innerHTML = renderQuickView(worker);
+            modal.classList.remove("hidden");
+        }
+
+        // Initialize Application
+        function initApp() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Initialize navigation
+            document.getElementById("nav-menu").innerHTML = renderNavigationItems(appData.navigationItems);
+            
+            // Initialize department filters
+            document.getElementById("filter-department").innerHTML = 
+                "<option value=\"\">All Departments</option>" + renderDepartmentsSelect();
+            document.getElementById("input-department").innerHTML = 
+                "<option value=\"\">Select Department</option>" + renderDepartmentsSelect();
+            
+            // Update stats and render workers
+            updateStats();
+            renderWorkers();
+            
+            // Setup event listeners
+            setupEventListeners();
+        }
+
+        function setupEventListeners() {
+            // Navigation
+            document.addEventListener("click", function(event) {
+                if (event.target.closest("[data-nav]")) {
+                    event.preventDefault();
+                    const navId = event.target.closest("[data-nav]").dataset.nav;
+                    if (navId !== "workers") {
+                        alert(`"${navId}" page would open here. This is a workers page demo.`);
+                    }
+                }
+            });
+            
+            // Logout
+            document.getElementById("logout-btn").addEventListener("click", function() {
+                if (confirm("Are you sure you want to logout?")) {
+                    alert("You would be logged out and redirected to login page.");
+                }
+            });
+            
+            // Add worker button
+            document.getElementById("add-worker-btn").addEventListener("click", () => showAddWorkerModal());
+            document.getElementById("add-first-worker").addEventListener("click", () => showAddWorkerModal());
+            
+            // Import/Export buttons
+            document.getElementById("import-workers-btn").addEventListener("click", () => {
+                alert("CSV import feature would open here.");
+            });
+            
+            document.getElementById("export-workers-btn").addEventListener("click", () => {
+                alert("Export feature would generate a CSV/Excel file.");
+            });
+            
+            document.getElementById("bulk-actions-btn").addEventListener("click", () => {
+                // Select all checkboxes
+                document.querySelectorAll(".worker-checkbox").forEach(cb => {
+                    cb.checked = true;
+                    const workerId = parseInt(cb.dataset.id);
+                    appData.selectedWorkers.add(workerId);
+                });
+                updateSelectedCount();
+            });
+            
+            // View toggle
+            document.getElementById("view-list").addEventListener("click", function() {
+                appData.currentView = "list";
+                this.classList.add("bg-laberion-green", "text-white");
+                this.classList.remove("bg-white", "text-gray-600");
+                document.getElementById("view-grid").classList.remove("bg-laberion-green", "text-white");
+                document.getElementById("view-grid").classList.add("bg-white", "text-gray-600");
+                renderWorkers();
+            });
+            
+            document.getElementById("view-grid").addEventListener("click", function() {
+                appData.currentView = "grid";
+                this.classList.add("bg-laberion-green", "text-white");
+                this.classList.remove("bg-white", "text-gray-600");
+                document.getElementById("view-list").classList.remove("bg-laberion-green", "text-white");
+                document.getElementById("view-list").classList.add("bg-white", "text-gray-600");
+                renderWorkers();
+            });
+            
+            // Search and filter events
+            document.getElementById("search-workers").addEventListener("input", function() {
+                appData.currentPage = 1;
+                updateStats();
+                renderWorkers();
+            });
+            
+            document.getElementById("filter-department").addEventListener("change", function() {
+                appData.currentPage = 1;
+                updateStats();
+                renderWorkers();
+            });
+            
+            document.getElementById("filter-status").addEventListener("change", function() {
+                appData.currentPage = 1;
+                updateStats();
+                renderWorkers();
+            });
+            
+            document.getElementById("filter-face-enrolled").addEventListener("change", function() {
+                appData.currentPage = 1;
+                updateStats();
+                renderWorkers();
+            });
+            
+            document.getElementById("clear-filters").addEventListener("click", function() {
+                document.getElementById("search-workers").value = "";
+                document.getElementById("filter-department").value = "";
+                document.getElementById("filter-status").value = "";
+                document.getElementById("filter-face-enrolled").value = "";
+                appData.currentPage = 1;
+                updateStats();
+                renderWorkers();
+            });
+            
+            // Remove filter buttons (delegated)
+            document.getElementById("active-filters").addEventListener("click", function(event) {
+                if (event.target.classList.contains("remove-filter")) {
+                    const filter = event.target.dataset.filter;
+                    if (filter === "department") {
+                        document.getElementById("filter-department").value = "";
+                    } else if (filter === "status") {
+                        document.getElementById("filter-status").value = "";
+                    } else if (filter === "faceEnrolled") {
+                        document.getElementById("filter-face-enrolled").value = "";
+                    } else if (filter === "search") {
+                        document.getElementById("search-workers").value = "";
+                    }
+                    appData.currentPage = 1;
+                    updateStats();
+                    renderWorkers();
+                }
+            });
+            
+            // Items per page
+            document.getElementById("items-per-page").addEventListener("change", function() {
+                appData.itemsPerPage = parseInt(this.value);
+                appData.currentPage = 1;
+                renderWorkers();
+            });
+            
+            // Pagination
+            document.getElementById("first-page").addEventListener("click", function() {
+                appData.currentPage = 1;
+                renderWorkers();
+            });
+            
+            document.getElementById("prev-page").addEventListener("click", function() {
+                if (appData.currentPage > 1) {
+                    appData.currentPage--;
+                    renderWorkers();
+                }
+            });
+            
+            document.getElementById("next-page").addEventListener("click", function() {
+                const filteredWorkers = getFilteredWorkers();
+                const totalPages = Math.ceil(filteredWorkers.length / appData.itemsPerPage);
+                if (appData.currentPage < totalPages) {
+                    appData.currentPage++;
+                    renderWorkers();
+                }
+            });
+            
+            document.getElementById("last-page").addEventListener("click", function() {
+                const filteredWorkers = getFilteredWorkers();
+                const totalPages = Math.ceil(filteredWorkers.length / appData.itemsPerPage);
+                appData.currentPage = totalPages;
+                renderWorkers();
+            });
+            
+            // Page number buttons (delegated)
+            document.getElementById("page-numbers").addEventListener("click", function(event) {
+                if (event.target.classList.contains("pagination-btn")) {
+                    appData.currentPage = parseInt(event.target.dataset.page);
+                    renderWorkers();
+                }
+            });
+            
+            // Worker checkboxes (delegated)
+            document.addEventListener("change", function(event) {
+                if (event.target.classList.contains("worker-checkbox")) {
+                    const workerId = parseInt(event.target.dataset.id);
+                    if (event.target.checked) {
+                        appData.selectedWorkers.add(workerId);
+                    } else {
+                        appData.selectedWorkers.delete(workerId);
+                        // Uncheck select all if any checkbox is unchecked
+                        document.getElementById("select-all").checked = false;
+                    }
+                    updateSelectedCount();
+                }
+            });
+            
+            // Select all checkbox
+            document.getElementById("select-all").addEventListener("change", function() {
+                const checkboxes = document.querySelectorAll(".worker-checkbox");
+                checkboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                    const workerId = parseInt(cb.dataset.id);
+                    if (this.checked) {
+                        appData.selectedWorkers.add(workerId);
+                    } else {
+                        appData.selectedWorkers.delete(workerId);
+                    }
+                });
+                updateSelectedCount();
+            });
+            
+            // Bulk actions
+            document.getElementById("apply-bulk-action").addEventListener("click", function() {
+                const action = document.getElementById("bulk-action-select").value;
+                if (!action) {
+                    alert("Please select an action first.");
+                    return;
+                }
+                
+                if (action === "delete") {
+                    showDeleteModal(null, true);
+                } else {
+                    alert(`Bulk action "${action}" would be applied to ${appData.selectedWorkers.size} workers.`);
+                }
+            });
+            
+            document.getElementById("cancel-bulk-action").addEventListener("click", function() {
+                // Clear all selections
+                document.querySelectorAll(".worker-checkbox").forEach(cb => {
+                    cb.checked = false;
+                });
+                appData.selectedWorkers.clear();
+                updateSelectedCount();
+            });
+            
+            // Worker actions (delegated)
+            document.addEventListener("click", function(event) {
+                // View worker
+                if (event.target.closest(".view-worker-btn")) {
+                    event.preventDefault();
+                    const workerId = parseInt(event.target.closest(".view-worker-btn").dataset.id);
+                    showQuickView(workerId);
+                }
+                
+                // Edit worker
+                if (event.target.closest(".edit-worker-btn")) {
+                    event.preventDefault();
+                    const workerId = parseInt(event.target.closest(".edit-worker-btn").dataset.id);
+                    const worker = appData.workers.find(w => w.id === workerId);
+                    if (worker) showAddWorkerModal(worker);
+                }
+                
+                // Enroll face
+                if (event.target.closest(".enroll-face-btn")) {
+                    event.preventDefault();
+                    const workerId = parseInt(event.target.closest(".enroll-face-btn").dataset.id);
+                    const worker = appData.workers.find(w => w.id === workerId);
+                    if (worker) {
+                        alert(`Face enrollment would start for ${worker.fullName}. This is a demo.`);
+                        // In real app, this would open camera interface
+                    }
+                }
+                
+                // Delete worker
+                if (event.target.closest(".delete-worker-btn")) {
+                    event.preventDefault();
+                    const workerId = parseInt(event.target.closest(".delete-worker-btn").dataset.id);
+                    showDeleteModal(workerId);
+                }
+            });
+            
+            // Worker modal
+            document.getElementById("close-modal").addEventListener("click", hideWorkerModal);
+            document.getElementById("cancel-modal").addEventListener("click", hideWorkerModal);
+            document.getElementById("worker-form").addEventListener("submit", handleWorkerFormSubmit);
+            document.getElementById("capture-face-btn").addEventListener("click", simulateFaceCapture);
+            document.getElementById("upload-face-btn").addEventListener("click", () => {
+                alert("Photo upload dialog would open here.");
+            });
+            
+            // Delete modal
+            document.getElementById("close-modal").addEventListener("click", hideWorkerModal);
+            document.getElementById("cancel-delete").addEventListener("click", hideDeleteModal);
+            document.getElementById("confirm-delete").addEventListener("click", handleDeleteWorker);
+            
+            // Quick view modal
+            document.getElementById("close-quick-view").addEventListener("click", hideQuickView);
+        }
+
+        function hideWorkerModal() {
+            document.getElementById("worker-modal").classList.add("hidden");
+        }
+
+        function hideDeleteModal() {
+            document.getElementById("delete-modal").classList.add("hidden");
+        }
+
+        function hideQuickView() {
+            document.getElementById("quick-view-modal").classList.add("hidden");
+        }
+
+        function handleWorkerFormSubmit(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const mode = form.dataset.mode;
+            const workerId = form.dataset.workerId ? parseInt(form.dataset.workerId) : null;
+            
+            // Collect form data
+            const workerData = {
+                fullName: document.getElementById("input-name").value,
+                employeeCode: document.getElementById("input-code").value,
+                email: document.getElementById("input-email").value || null,
+                phone: document.getElementById("input-phone").value || null,
+                dob: document.getElementById("input-dob").value || null,
+                gender: document.getElementById("input-gender").value || null,
+                department: document.getElementById("input-department").value,
+                position: document.getElementById("input-position").value,
+                employmentType: document.getElementById("input-employment-type").value,
+                joinDate: document.getElementById("input-join-date").value,
+                shift: document.getElementById("input-shift").value,
+                salaryGrade: document.getElementById("input-salary-grade").value,
+                status: document.querySelector("input[name='status']:checked").value,
+                accessLevel: document.getElementById("input-access-level").value,
+                faceEnrolled: false, // Will be set to true after face enrollment
+                photo: `https://picsum.photos/200?random=${appData.workers.length + 100}`,
+                lastCheckIn: null,
+                emergencyContact: {
+                    name: document.getElementById("input-emergency-name").value || null,
+                    phone: document.getElementById("input-emergency-phone").value || null,
+                    relationship: document.getElementById("input-emergency-relationship").value || null
+                },
+                notes: document.getElementById("input-notes").value || null
+            };
+            
+            // Validate required fields
+            if (!workerData.fullName || !workerData.employeeCode || !workerData.department || !workerData.position) {
+                alert("Please fill in all required fields (marked with *).");
+                return;
+            }
+            
+            if (mode === "edit" && workerId) {
+                // Update existing worker
+                const index = appData.workers.findIndex(w => w.id === workerId);
+                if (index !== -1) {
+                    // Preserve some existing data
+                    workerData.id = workerId;
+                    workerData.faceEnrolled = appData.workers[index].faceEnrolled;
+                    workerData.photo = appData.workers[index].photo;
+                    workerData.lastCheckIn = appData.workers[index].lastCheckIn;
+                    
+                    appData.workers[index] = workerData;
+                    
+                    // Show success message
+                    showNotification("Worker updated successfully!", "success");
+                }
+            } else {
+                // Add new worker
+                workerData.id = appData.workers.length > 0 ? Math.max(...appData.workers.map(w => w.id)) + 1 : 1;
+                appData.workers.push(workerData);
+                
+                // Show success message
+                showNotification("Worker added successfully!", "success");
+            }
+            
+            // Update UI
+            updateStats();
+            renderWorkers();
+            
+            // Close modal
+            hideWorkerModal();
+        }
+
+        function handleDeleteWorker() {
+            const modal = document.getElementById("delete-modal");
+            const isBulk = modal.dataset.bulk === "true";
+            
+            if (isBulk) {
+                // Delete selected workers
+                appData.selectedWorkers.forEach(workerId => {
+                    const index = appData.workers.findIndex(w => w.id === workerId);
+                    if (index !== -1) {
+                        appData.workers.splice(index, 1);
+                    }
+                });
+                appData.selectedWorkers.clear();
+                showNotification(`${appData.selectedWorkers.size} workers deleted successfully!`, "success");
+            } else {
+                // Delete single worker
+                const workerId = parseInt(modal.dataset.workerId);
+                const index = appData.workers.findIndex(w => w.id === workerId);
+                
+                if (index !== -1) {
+                    const workerName = appData.workers[index].fullName;
+                    appData.workers.splice(index, 1);
+                    showNotification(`Worker "${workerName}" deleted successfully!`, "success");
+                }
+            }
+            
+            // Update UI
+            updateStats();
+            renderWorkers();
+            updateSelectedCount();
+            
+            // Close modal
+            hideDeleteModal();
+        }
+
+        function simulateFaceCapture() {
+            const preview = document.getElementById("face-preview");
+            preview.innerHTML = "";
+            
+            // Show loading
+            preview.innerHTML = "<div class=\"col-span-3 text-center py-8\"><div class=\"loading-spinner mx-auto mb-4\"></div><p class=\"text-gray-600\">Capturing face images...</p></div>";
+            preview.classList.remove("hidden");
+            
+            // Simulate capturing 3 face images
+            setTimeout(() => {
+                preview.innerHTML = "";
+                for (let i = 1; i <= 3; i++) {
+                    const imgUrl = `https://picsum.photos/150?random=${Math.floor(Math.random() * 1000)}`;
+                    const imgElement = document.createElement("div");
+                    imgElement.className = "relative";
+                    imgElement.innerHTML = `
+                        <img src="${imgUrl}" alt="Face capture ${i}" class="w-full h-32 object-cover rounded-lg">
+                        <div class="absolute top-2 right-2 w-6 h-6 bg-success rounded-full flex items-center justify-center">
+                            <i class="fas fa-check text-white text-xs"></i>
+                        </div>
+                    `;
+                    preview.appendChild(imgElement);
+                }
+                
+                showNotification("Face enrollment completed successfully! 3 images captured.", "success");
+            }, 2000);
+        }
+
+        function showNotification(message, type = "info") {
+            // Create notification element
+            const notification = document.createElement("div");
+            notification.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center ${type === "success" ? "bg-success text-white" : type === "error" ? "bg-danger text-white" : "bg-accent text-white"}`;
+            notification.innerHTML = `
+                <i class="fas ${type === "success" ? "fa-check-circle" : type === "error" ? "fa-exclamation-circle" : "fa-info-circle"} mr-3"></i>
+                <span>${message}</span>
+            `;
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.opacity = "0";
+                notification.style.transition = "opacity 0.3s";
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Initialize the application
+        document.addEventListener("DOMContentLoaded", initApp);
+    </script>
+</body>
+</html>
