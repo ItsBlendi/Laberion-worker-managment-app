@@ -1,0 +1,770 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laborion | Leaves Management</title>
+    <meta name="description" content="Laborion worker management system - Leaves tracking and approval">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        
+        .table-row:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .status-approved {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .status-pending {
+            background-color: #f59e0b;
+            color: white;
+        }
+        
+        .status-rejected {
+            background-color: #ef4444;
+            color: white;
+        }
+        
+        .status-sick {
+            background-color: #8b5cf6;
+            color: white;
+        }
+        
+        .status-vacation {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .modal {
+            transition: opacity 0.3s ease;
+        }
+        
+        .chart-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .shadow-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background-color: #f1f5f9;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e2e8f0;
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Sidebar Navigation -->
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <div class="sidebar w-64 bg-white shadow-card">
+            <div class="p-6">
+                <div class="flex items-center mb-8">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-briefcase text-white text-lg"></i>
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-800 ml-3">Laborion</h1>
+                </div>
+                
+                <nav>
+                    <ul id="nav-menu-container" class="space-y-2">
+                        <!-- Navigation menu will be rendered here -->
+                    </ul>
+                    
+                    <div class="mt-8 pt-4 border-t border-gray-200">
+                        <div class="flex items-center">
+                            <img src="https://picsum.photos/40?random=100" alt="Admin Profile" class="w-10 h-10 rounded-full">
+                            <div class="ml-3">
+                                <p class="font-medium text-gray-800">Admin User</p>
+                                <p class="text-sm text-gray-600">Administrator</p>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1">
+            <!-- Header -->
+            <header class="bg-white shadow-sm py-4 px-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Leaves Management</h2>
+                        <p class="text-gray-600">Track and manage employee leave requests</p>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <button class="btn-primary px-4 py-2 rounded-lg font-medium">
+                            <i class="fas fa-plus mr-2"></i>
+                            New Leave Request
+                        </button>
+                        <div class="relative">
+                            <i class="fas fa-bell text-gray-600 text-xl"></i>
+                            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main class="p-6">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow-card p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm">Total Leaves</p>
+                                <p class="text-2xl font-bold text-gray-800">142</p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-calendar-alt text-blue-600 text-lg"></i>
+                            </div>
+                        </div>
+                        <p class="text-green-600 text-sm mt-2"><i class="fas fa-arrow-up mr-1"></i> 12% this month</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-card p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm">Pending Requests</p>
+                                <p class="text-2xl font-bold text-gray-800">23</p>
+                            </div>
+                            <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-clock text-yellow-600 text-lg"></i>
+                            </div>
+                        </div>
+                        <p class="text-red-600 text-sm mt-2"><i class="fas fa-arrow-down mr-1"></i> 5% this week</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-card p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm">Approved Leaves</p>
+                                <p class="text-2xl font-bold text-gray-800">89</36678</p>
+                            </div>
+                            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-check-circle text-green-600 text-lg"></i>
+                            </div>
+                        </div>
+                        <p class="text-green-600 text-sm mt-2"><i class="fas fa-arrow-up mr-1"></i> 18% this month</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-card p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm">Average Duration</p>
+                                <p class="text-2xl font-bold text-gray-800">3.2 days</p>
+                            </div>
+                            <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-calendar-day text-purple-600 text-lg"></i>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-2">Per leave request</p>
+                    </div>
+                </div>
+
+                <!-- Leaves Table -->
+                <div class="bg-white rounded-lg shadow-card mb-8">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-gray-800">All Leave Requests</h3>
+                            <div class="flex space-x-4">
+                                <div class="relative">
+                                    <input type="text" placeholder="Search leaves..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64">
+                                    <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+                                </div>
+                                <select class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="all">All Types</option>
+                                    <option value="vacation">Vacation</option>
+                                    <option value="sick">Sick Leave</option>
+                                    <option value="personal">Personal</option>
+                                    <option value="emergency">Emergency</option>
+                                </select>
+                                <select class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="all">All Status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-3 px-6 text-left text-gray-700 font-medium">Employee</th>
+                                    <th class="py-3 px-6 text-left text-gray-700 font-medium">Leave Type</th>
+                                    <th class="py-3 px-6 text-left text-gray-700 font-medium">Start Date</th>
+                                    <th class="py-3 px-6 text-left text-gray-700 font-medium">End Date</th>
+                                    <th class="py-3 px-6 text-left text-gray-700 font-medium">Duration</th>
+                                    <th class="py-3 px-6 text-left text-gray-700 font-medium">Status</th>
+                                    <th class="py-3 px-6 text-left text-gray-700 font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaves-table-container">
+                                <!-- Leaves data will be rendered here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <!-- Leave Type Distribution -->
+                    <div class="bg-white rounded-lg shadow-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Leave Type Distribution</h3>
+                        <div id="leave-type-chart-container" class="grid grid-cols-2 gap-4">
+                            <!-- Chart data will be rendered here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
+                    <div class="bg-white rounded-lg shadow-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Recent Activity</h3>
+                        <div id="activity-container" class="space-y-4">
+                            <!-- Activity data will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Quick Actions</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <button class="btn-secondary p-4 rounded-lg flex items-center justify-center hover:bg-blue-50">
+                            <i class="fas fa-file-export text-blue-600 text-xl mr-3"></i>
+                            Export Data
+                        </button>
+                        <button class="btn-secondary p-4 rounded-lg flex items-center justify-center hover:bg-green-50">
+                            <i class="fas fa-bullhorn text-green-600 text-xl mr-3"></i>
+                            Send Reminders
+                        </button>
+                        <button class="btn-secondary p-4 rounded-lg flex items-center justify-center hover:bg-yellow-50">
+                            <i class="fas fa-calendar-check text-yellow-600 text-xl mr-3"></i>
+                            Bulk Approve
+                        </button>
+                        <button class="btn-secondary p-4 rounded-lg flex items-center justify-center hover:bg-purple-50">
+                            <i class="fas fa-chart-pie text-purple-600 text-xl mr-3"></i>
+                            Generate Report
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal for New Leave Request -->
+    <div id="new-leave-modal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-auto p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">New Leave Request</h3>
+                <button id="close-modal" class="text-gray-600 hover:text-gray-800">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="leave-form" class="space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 mb-2">Employee</label>
+                        <select class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Select Employee</option>
+                            <option value="john">John Smith</option>
+                            <option value="mary">Mary Johnson</option>
+                            <option value="david">David Chen</option>
+                            <option value="sarah">Sarah Williams</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 mb-2">Leave Type</label>
+                        <select class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="vacation">Vacation</option>
+                            <option value="sick">Sick Leave</option>
+                            <option value="personal">Personal</option>
+                            <option value="emergency">Emergency</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 mb-2">Start Date</label>
+                        <input type="date" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 mb-2">End Date</label>
+                        <input type="date" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 mb-2">Reason</label>
+                    <textarea rows="4" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 mb-2">Attachment (Optional)</label>
+                    <input type="file" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <div class="flex justify-end space-x-4">
+                    <button type="button" class="btn-secondary px-6 py-2 rounded-lg font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary px-6 py-2 rounded-lg font-medium">
+                        Submit Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Data layer
+        const appData = {
+            // Navigation menu items
+            navMenuItems: [
+                { icon: "fas fa-tachometer-alt", label: "Dashboard", href: "dashboard.html", active: false },
+                { icon: "fas fa-users", label: "Workers", href: "workers.html", active: false },
+                { icon: "fas fa-calendar-check", label: "Attendance", href: "attendance.html", active: false },
+                { icon: "fas fa-clock", label: "Shifts", href: "shifts.html", active: false },
+                { icon: "fas fa-calendar-times", label: "Leaves", href: "leaves.html", active: true },
+                { icon: "fas fa-chart-bar", label: "Reports", href: "reports.html", active: false },
+                { icon: "fas fa-cogs", label: "Settings", href: "settings.html", active: false }
+            ],
+            
+            // Leaves data
+            leaves: [
+                {
+                    id: 1,
+                    employeeName: "John Smith",
+                    employeeImage: "https://picsum.photos/40?random=1",
+                    leaveType: "Vacation",
+                    startDate: "2024-03-15",
+                    endDate: "2024-03-20",
+                    duration: "5 days",
+                    status: "approved",
+                    reason: "Family vacation to Hawaii"
+                },
+                {
+                    id: 2,
+                    employeeName: "Mary Johnson",
+                    employeeImage: "https://picsum.photos/40?random=2",
+                    leaveType: "Sick Leave",
+                    startDate: "2024-03-18",
+                    endDate: "2024-03-22",
+                    duration: "4 days",
+                    status: "pending",
+                    reason: "Flu symptoms, doctor advised rest"
+                },
+                {
+                    id: 3,
+                    employeeName: "David Chen",
+                    employeeImage: "https://picsum.photos/40?random=3",
+                    leaveType: "Personal",
+                    startDate: "2024-03-25",
+                    endDate: "2024-03-27",
+                    duration: "2 days",
+                    status: "approved",
+                    reason: "Personal matters"
+                },
+                {
+                    id: 4,
+                    employeeName: "Sarah Williams",
+                    employeeImage: "https://picsum.photos/40?random=4",
+                    leaveType: "Emergency",
+                    startDate: "2024-03-10",
+                    endDate: "2024-03-12",
+                    duration: "2 days",
+                    status: "rejected",
+                    reason: "Emergency family situation"
+                },
+                {
+                    id: 5,
+                    employeeName: "Michael Brown",
+                    employeeImage: "https://picsum.photos/40?random=5",
+                    leaveType: "Vacation",
+                    startDate: "2024-04-01",
+                    endDate: "2024-04-10",
+                    duration: "9 days",
+                    status: "pending",
+                    reason: "Annual vacation planning"
+                },
+                {
+                    id: 6,
+                    employeeName: "Emma Davis",
+                    employeeImage: "https://picsum.photos/40?random=6",
+                    leaveType: "Sick Leave",
+                    startDate: "2024-03-22",
+                    endDate: "2024-03-24",
+                    duration: "2 days",
+                    status: "approved",
+                    reason: "Medical appointment"
+                },
+                {
+                    id: 7,
+                    employeeName: "Robert Wilson",
+                    employeeImage: "https://picsum.photos/40?random=7",
+                    leaveType: "Personal",
+                    startDate: "2024-03-28",
+                    endDate: "2024-03-29",
+                    duration: "1 day",
+                    status: "pending",
+                    reason: "Personal day off"
+                },
+                {
+                    id: 8,
+                    employeeName: "Lisa Martinez",
+                    employeeImage: "https://picsum.photos/40?random=8",
+                    leaveType: "Vacation",
+                    startDate: "2024-04-05",
+                    endDate: "2024-04-15",
+                    duration: "10 days",
+                    status: "approved",
+                    reason: "International travel"
+                }
+            ],
+            
+            // Leave type distribution data
+            leaveTypes: [
+                { type: "Vacation", count: 65, color: "bg-blue-600", percentage: "45%" },
+                { type: "Sick Leave", count: 42, color: "bg-purple-600", percentage: "30%" },
+                { type: "Personal", count: 25, color: "bg-yellow-600", percentage: "17%" },
+                { type: "Emergency", count: 10, color: "bg-red-600", percentage: "8%" }
+            ],
+            
+            // Recent activity data
+            activities: [
+                { action: "Leave Approved", employee: "John Smith", time: "2 hours ago", icon: "fas fa-check-circle", color: "text-green-600" },
+                { action: "Leave Submitted", employee: "Mary Johnson", time: "4 hours ago", icon: "fas fa-file-alt", color: "text-blue-600" },
+                { action: "Leave Rejected", employee: "Sarah Williams", time: "1 day ago", icon: "fas fa-times-circle", color: "text-red-600" },
+                { action: "Leave Updated", employee: "David Chen", time: "2 days ago", icon: "fas fa-edit", color: "text-yellow-600" }
+            ]
+        };
+        
+        // Render functions
+        function renderNavMenu() {
+            const container = document.getElementById('nav-menu-container');
+            if (!container) return;
+            
+            container.innerHTML = appData.navMenuItems.map(item => `
+                <li>
+                    <a href="${item.href}" class="flex items-center px-4 py-3 rounded-lg ${item.active ? 'bg-blue-100 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}">
+                        <i class="${item.icon} mr-3"></i>
+                        ${item.label}
+                        ${item.active ? '<span class="ml-auto bg-blue-600 text-white text-xs px-2 py-1 rounded">Active</span>' : ''}
+                    </a>
+                </li>
+            `).join('');
+        }
+        
+        function renderLeavesTable() {
+            const container = document.getElementById('leaves-table-container');
+            if (!container) return;
+            
+            container.innerHTML = appData.leaves.map(leave => `
+                <tr class="table-row border-b border-gray-200">
+                    <td class="py-4 px-6">
+                        <div class="flex items-center">
+                            <img src="${leave.employeeImage}" alt="${leave.employeeName}" class="w-8 h-8 rounded-full mr-3">
+                            <span class="font-medium">${leave.employeeName}</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-6">
+                        <span class="px-3 py-1 rounded-full text-sm ${leave.leaveType === 'Vacation' ? 'status-vacation' : leave.leaveType === 'Sick Leave' ? 'status-sick' : 'bg-gray-200 text-gray-700'}">
+                            ${leave.leaveType}
+                        </span>
+                    </td>
+                    <td class="py-4 px-6">${leave.startDate}</td>
+                    <td class="py-4 px-6">${leave.endDate}</td>
+                    <td class="py-4 px-6">${leave.duration}</td>
+                    <td class="py-4 px-6">
+                        <span class="px-3 py-1 rounded-full text-sm ${leave.status === 'approved' ? 'status-approved' : leave.status === 'pending' ? 'status-pending' : 'status-rejected'}">
+                            ${leave.status}
+                        </span>
+                    </td>
+                    <td class="py-4 px-6">
+                        <div class="flex space-x-2">
+                            ${leave.status === 'pending' ? `
+                                <button class="approve-leave-btn text-green-600 hover:text-green-800" data-id="${leave.id}">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="reject-leave-btn text-red-600 hover:text-red-800" data-id="${leave.id}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            ` : ''}
+                            <button class="view-leave-btn text-blue-600 hover:text-blue-800" data-id="${leave.id}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="edit-leave-btn text-gray-600 hover:text-gray-800" data-id="${leave.id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>#End of Table
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function renderLeaveTypeChart() {
+            const container = document.getElementById('leave-type-chart-container');
+            if (!container) return;
+            
+            container.innerHTML = appData.leaveTypes.map(type => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-gray-800">${type.type}</p>
+                        <p class="text-gray-600 text-sm">${type.count} leaves</p>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="${type.color} w-4 h-4 rounded-full mr-2"></div>
+                        <span class="font-bold">${type.percentage}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function renderActivity() {
+            const container = document.getElementById('activity-container');
+            if (!container) return;
+            
+            container.innerHTML = appData.activities.map(activity => `
+                <div class="flex items-center p-4 bg-gray-50 rounded-lg">
+                    <i class="${activity.icon} ${activity.color} text-lg mr-4"></i>
+                    <div>
+                        <p class="font-medium text-gray-800">${activity.action}</p>
+                        <p class="text-gray-600 text-sm">${activity.employee} - ${activity.time}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Render all components
+            renderNavMenu();
+            renderLeavesTable();
+            renderLeaveTypeChart();
+            renderActivity();
+            
+            // Setup event handlers
+            setupEventHandlers();
+            
+            // Animate elements on load
+            animateOnLoad();
+        });
+        
+        // Event handlers
+        function setupEventHandlers() {
+            // New Leave Request button
+            const newLeaveBtn = document.querySelector('.btn-primary');
+            if (newLeaveBtn) {
+                newLeaveBtn.addEventListener('click', function() {
+                    document.getElementById('new-leave-modal').classList.remove('hidden');
+                });
+            }
+            
+            // Close modal button
+            const closeModalBtn = document.getElementById('close-modal');
+            if (closeModalBtn) {
+                closeModalBtn.addEventListener('click', function() {
+                    document.getElementById('new-leave-modal').classList.add('hidden');
+                });
+            }
+            
+            // Leave form submission
+            const leaveForm = document.getElementById('leave-form');
+            if (leaveForm) {
+                leaveForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    alert("Leave request submitted successfully!");
+                    document.getElementById('new-leave-modal').classList.add('hidden');
+                    // You would normally submit to backend here
+                });
+            }
+            
+            // Table action buttons - using event delegation
+            document.addEventListener('click', function(e) {
+                // Approve leave
+                if (e.target.closest('.approve-leave-btn')) {
+                    const leaveId = e.target.closest('.approve-leave-btn').getAttribute('data-id');
+                    alert(`Leave request ${leaveId} approved!`);
+                    // Update status in data array and re-render
+                }
+                
+                // Reject leave
+                if (e.target.closest('.reject-leave-btn')) {
+                    const leaveId = e.target.closest('.reject-leave-btn').getAttribute('data-id');
+                    alert(`Leave request ${leaveId} rejected!`);
+                    // Update status in data array and re-render
+                }
+                
+                // View leave
+                if (e.target.closest('.view-leave-btn')) {
+                    const leaveId = e.target.closest('.view-leave-btn').getAttribute('data-id');
+                    const leave = appData.leaves.find(l => l.id === parseInt(leaveId));
+                    if (leave) {
+                        alert(`Viewing leave request ${leaveId}:\nEmployee: ${leave.employeeName}\nType: ${leave.leaveType}\nDates: ${leave.startDate} to ${leave.endDate}\nReason: ${leave.reason}`);
+                    }
+                }
+                
+                // Edit leave
+                if (e.target.closest('.edit-leave-btn')) {
+                    const leaveId = e.target.closest('.edit-leave-btn').getAttribute('data-id');
+                    alert(`Editing leave request ${leaveId}`);
+                    // Open edit modal
+                }
+            });
+            
+            // Search functionality
+            const searchInput = document.querySelector('input[type="text"]');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const filteredLeaves = appData.leaves.filter(leave => 
+                        leave.employeeName.toLowerCase().includes(searchTerm) ||
+                        leave.leaveType.toLowerCase().includes(searchTerm) ||
+                        leave.status.toLowerCase().includes(searchTerm)
+                    );
+                    
+                    // Re-render table with filtered data
+                    const container = document.getElementById('leaves-table-container');
+                    if (container) {
+                        container.innerHTML = filteredLeaves.map(leave => `
+                            <tr class="table-row border-b border-gray-200">
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center">
+                                        <img src="${leave.employeeImage}" alt="${leave.employeeName}" class="w-8 h-8 rounded-full mr-3">
+                                        <span class="font-medium">${leave.employeeName}</span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <span class="px-3 py-1 rounded-full text-sm ${leave.leaveType === 'Vacation' ? 'status-vacation' : leave.leaveType === 'Sick Leave' ? 'status-sick' : 'bg-gray-200 text-gray-700'}">
+                                        ${leave.leaveType}
+                                    </span>
+                                </td>
+                                <td class="py-4 px-6">${leave.startDate}</td>
+                                <td class="py-4 px-6">${leave.endDate}</td>
+                                <td class="py-4 px-6">${leave.duration}</td>
+                                <td class="py-4 px-6">
+                                    <span class="px-3 py-1 rounded-full text-sm ${leave.status === 'approved' ? 'status-approved' : leave.status === 'pending' ? 'status-pending' : 'status-rejected'}">
+                                        ${leave.status}
+                                    </span>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="flex space-x-2">
+                                        ${leave.status === 'pending' ? `
+                                            <button class="approve-leave-btn text-green-600 hover:text-green-800" data-id="${leave.id}">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            <button class="reject-leave-btn text-red-600 hover:text-red-800" data-id="${leave.id}">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        ` : ''}
+                                        <button class="view-leave-btn text-blue-600 hover:text-blue-800" data-id="${leave.id}">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="edit-leave-btn text-gray-600 hover:text-gray-800" data-id="${leave.id}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                });
+            }
+            
+            // Filter functionality
+            const typeFilter = document.querySelector('select');
+            if (typeFilter) {
+                typeFilter.addEventListener('change', function() {
+                    // Filter implementation would go here
+                });
+            }
+            
+            // Quick action buttons
+            const quickActions = document.querySelectorAll('.btn-secondary');
+            quickActions.forEach(button => {
+                button.addEventListener('click', function() {
+                    const action = this.textContent.trim();
+                    alert(`${action} action triggered!`);
+                });
+            });
+        }
+        
+        // Animation on load
+        function animateOnLoad() {
+            const elements = document.querySelectorAll('.table-row, .bg-white');
+            elements.forEach((el, index) => {
+                el.style.opacity = "0";
+                el.style.transform = "translateY(20px)";
+                
+                setTimeout(() => {
+                    el.style.transition = "opacity 0.5s ease, transform 0.5s ease";
+                    el.style.opacity = "1";
+                    el.style.transform = "translateY(0)";
+                }, index * 50);
+            });
+        }
+        
+        // Navigation handler
+        document.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A') {
+                e.preventDefault();
+                const href = e.target.getAttribute('href');
+                
+                if (href && href !== '#') {
+                    // For demo purposes, show a message
+                    alert("Navigating to: " + href);
+                    // In a real app, you would navigate to the page
+                }
+            }
+        });
+    </script>
+</body>
+</html>
