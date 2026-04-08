@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laborion | Settings</title>
+    <meta name="description" content="Laborion worker management system - Application settings and configuration">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        .shadow-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        .tab-active {
+            border-bottom-width: 2px;
+            border-color: #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .tab-inactive {
+            border-color: transparent;
+            color: #64748b;
+        }
+        
+        .tab-inactive:hover {
+            color: #3b82f6;
+            border-color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex overflow-hidden">
+
+    <aside class="w-64 bg-white shadow-card flex-shrink-0 hidden md:flex flex-col h-screen z-10 relative">
+        <div class="p-6 flex items-center border-b border-slate-100">
+            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                <i class="fas fa-briefcase text-lg"></i>
+            </div>
+            <h1 class="text-xl font-bold text-slate-800 ml-3">Laborion</h1>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto py-4 px-3">
+            <ul id="sidebar-nav" class="space-y-1"></ul>
+        </nav>
+        
+        <div class="p-4 border-t border-slate-200">
+            <a href="#profile" class="flex items-center p-2 hover:bg-slate-50 rounded-lg transition-colors duration-200">
+                <img src="https://picsum.photos/40?random=1" alt="Admin Profile" class="w-10 h-10 rounded-full object-cover border border-slate-200" loading="lazy">
+                <div class="ml-3">
+                    <p class="font-medium text-sm text-slate-800">Admin User</p>
+                    <p class="text-xs text-slate-500">Administrator</p>
+                </div>
+            </a>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        <header class="bg-white shadow-sm z-0 relative">
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Settings</h2>
+                    <p class="text-sm text-slate-500 mt-1">Configure your Laborion application preferences</p>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <button class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center">
+                        <i class="fas fa-undo mr-2"></i> Reset
+                    </button>
+                    <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors duration-200 flex items-center">
+                        <i class="fas fa-save mr-2"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+            
+            <div class="px-6 pt-2">
+                <ul id="settings-tabs" class="flex space-x-6 overflow-x-auto border-b border-slate-200"></ul>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-6 bg-slate-50">
+            <div class="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6">
+                
+                <div id="tab-content" class="flex-1 space-y-6"></div>
+
+                <div class="w-full lg:w-80 flex-shrink-0 space-y-6 hidden xl:block">
+                    <div class="bg-white rounded-xl shadow-card p-5 border border-slate-100">
+                        <h3 class="text-base font-semibold text-slate-800 mb-4">Quick Actions</h3>
+                        <ul id="quick-actions" class="space-y-2"></ul>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-card p-5 border border-slate-100">
+                        <h3 class="text-base font-semibold text-slate-800 mb-4">System Information</h3>
+                        <ul id="system-info" class="space-y-3 text-sm"></ul>
+                        <div class="mt-5 pt-4 border-t border-slate-100">
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-medium text-slate-700">Storage Capacity</span>
+                                <span class="text-slate-500">65% used</span>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: 65%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- DATA LAYER ---
+        const navigationData = [
+            { id: "dashboard", icon: "fa-home", label: "Dashboard", href: "#dashboard", active: false },
+            { id: "workers", icon: "fa-users", label: "Workers", href: "#workers", active: false },
+            { id: "leaves", icon: "fa-calendar-alt", label: "Leaves", href: "#leaves", active: false },
+            { id: "reports", icon: "fa-chart-bar", label: "Reports", href: "#reports", active: false },
+            { id: "settings", icon: "fa-cog", label: "Settings", href: "#settings", active: true }
+        ];
+
+        const tabsData = [
+            { id: "general", icon: "fa-sliders-h", label: "General" },
+            { id: "appearance", icon: "fa-paint-brush", label: "Appearance" },
+            { id: "notifications", icon: "fa-bell", label: "Notifications" },
+            { id: "security", icon: "fa-shield-alt", label: "Security" }
+        ];
+
+        const selectOptionsData = {
+            timezones: [
+                { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+                { value: "EST", label: "EST (Eastern Standard Time)", selected: true },
+                { value: "CST", label: "CST (Central Standard Time)" },
+                { value: "MST", label: "MST (Mountain Standard Time)" },
+                { value: "PST", label: "PST (Pacific Standard Time)" }
+            ],
+            dateFormats: [
+                { value: "MM/DD/YYYY", label: "MM/DD/YYYY (US)", selected: true },
+                { value: "DD/MM/YYYY", label: "DD/MM/YYYY (EU)" },
+                { value: "YYYY-MM-DD", label: "YYYY-MM-DD (ISO)" }
+            ],
+            languages: [
+                { value: "en", label: "English", selected: true },
+                { value: "es", label: "Spanish" },
+                { value: "fr", label: "French" },
+                { value: "de", label: "German" }
+            ]
+        };
+
+        const toggleSettingsData = {
+            workSchedule: [
+                { id: "overtime", label: "Enable overtime tracking", checked: true },
+                { id: "auto_overtime", label: "Auto-calculate overtime after 8 hours", checked: true },
+                { id: "manager_approval", label: "Require manager approval for overtime", checked: true },
+                { id: "weekend_tracking", label: "Track weekend shifts separately", checked: false }
+            ],
+            notificationPreferences: [
+                { id: "email_alerts", label: "Email alerts for new leave requests", checked: true },
+                { id: "push_alerts", label: "Push notifications for urgent reports", checked: true },
+                { id: "sms_alerts", label: "SMS alerts for system downtime", checked: false },
+                { id: "daily_summary", label: "Receive daily summary email", checked: true }
+            ],
+            securitySettings: [
+                { id: "two_factor", label: "Require Two-Factor Authentication (2FA)", checked: false },
+                { id: "force_password", label: "Force password reset every 90 days", checked: true },
+                { id: "session_timeout", label: "Log out inactive sessions after 30 mins", checked: true }
+            ]
+        };
+
+        const themesData = [
+            { id: "light", name: "Light Mode", bgClass: "bg-white", borderClass: "border-slate-200", textClass: "text-slate-800" },
+            { id: "dark", name: "Dark Mode", bgClass: "bg-slate-800", borderClass: "border-slate-700", textClass: "text-white" },
+            { id: "system", name: "System Default", bgClass: "bg-slate-100", borderClass: "border-slate-300", textClass: "text-slate-600" }
+        ];
+
+        const sideWidgetsData = {
+            actions: [
+                { icon: "fa-download", label: "Export Settings" },
+                { icon: "fa-upload", label: "Import Settings" },
+                { icon: "fa-broom", label: "Clear Cache" },
+                { icon: "fa-stethoscope", label: "System Check" }
+            ],
+            info: [
+                { label: "App Version", value: "v2.4.1" },
+                { label: "Last Updated", value: "2024-03-15" },
+                { label: "Database Size", value: "245 MB" },
+                { label: "Active Users", value: "142" }
+            ]
+        };
+
+        // Current UI State
+        let currentTab = "general";
+
+        // --- RENDER FUNCTIONS (REUSABLE) ---
+
+        function renderSidebar() {
+            const html = navigationData.map(item => `
+                <li>
+                    <a href="${item.href}" class="flex items-center px-4 py-3 rounded-lg transition-colors duration-200 ${item.active ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}">
+                        <i class="fas ${item.icon} w-5 text-center mr-3 ${item.active ? 'text-blue-600' : 'text-slate-400'}"></i>
+                        <span>${item.label}</span>
+                    </a>
+                </li>
+            `).join("");
+            document.getElementById("sidebar-nav").innerHTML = html;
+        }
+
+        function renderTabs() {
+            const html = tabsData.map(tab => `
+                <li class="pb-3 px-1 cursor-pointer transition-all duration-200 ${tab.id === currentTab ? 'tab-active' : 'tab-inactive'}" data-tab="${tab.id}">
+                    <i class="fas ${tab.icon} mr-2"></i>${tab.label}
+                </li>
+            `).join("");
+            document.getElementById("settings-tabs").innerHTML = html;
+        }
+
+        function buildSelectOptions(optionsArray) {
+            return optionsArray.map(opt => `<option value="${opt.value}" ${opt.selected ? 'selected' : ''}>${opt.label}</option>`).join("");
+        }
+
+        function buildToggleGroup(togglesArray) {
+            return togglesArray.map(toggle => `
+                <div class="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                    <span class="text-sm text-slate-700">${toggle.label}</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer" id="${toggle.id}" ${toggle.checked ? 'checked' : ''}>
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            `).join("");
+        }
+
+        function renderSideWidgets() {
+            // Quick Actions
+            document.getElementById("quick-actions").innerHTML = sideWidgetsData.actions.map(action => `
+                <li>
+                    <button class="w-full flex items-center px-4 py-2 text-sm text-slate-600 bg-slate-50 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors border border-transparent hover:border-blue-100">
+                        <i class="fas ${action.icon} w-5 text-center mr-2"></i> ${action.label}
+                    </button>
+                </li>
+            `).join("");
+
+            // System Info
+            document.getElementById("system-info").innerHTML = sideWidgetsData.info.map(info => `
+                <li class="flex justify-between items-center py-1">
+                    <span class="text-slate-500">${info.label}</span>
+                    <span class="font-medium text-slate-800">${info.value}</span>
+                </li>
+            `).join("");
+        }
+
+        // --- TAB CONTENT GENERATORS ---
+
+        function generateGeneralTab() {
+            return `
+                <div class="animate-fade-in space-y-6">
+                    <div class="bg-white rounded-xl shadow-card p-6 border border-slate-100">
+                        <h3 class="text-lg font-bold text-slate-800 mb-5 border-b border-slate-100 pb-3">Application Defaults</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Company Name</label>
+                                <input type="text" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="Laborion Inc.">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Default Language</label>
+                                <select class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                    ${buildSelectOptions(selectOptionsData.languages)}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Timezone</label>
+                                <select class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                    ${buildSelectOptions(selectOptionsData.timezones)}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Date Format</label>
+                                <select class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                    ${buildSelectOptions(selectOptionsData.dateFormats)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-card p-6 border border-slate-100">
+                        <h3 class="text-lg font-bold text-slate-800 mb-5 border-b border-slate-100 pb-3">Work Schedule Rules</h3>
+                        <div class="max-w-2xl">
+                            ${buildToggleGroup(toggleSettingsData.workSchedule)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateAppearanceTab() {
+            const themesHtml = themesData.map(theme => `
+                <div class="cursor-pointer border-2 rounded-xl p-1 transition-all ${theme.id === 'light' ? 'border-blue-500' : 'border-transparent hover:border-slate-300'}">
+                    <div class="${theme.bgClass} ${theme.borderClass} border rounded-lg h-24 w-full flex items-center justify-center">
+                        <span class="text-sm font-medium ${theme.textClass}">${theme.name}</span>
+                    </div>
+                </div>
+            `).join("");
+
+            return `
+                <div class="animate-fade-in space-y-6">
+                    <div class="bg-white rounded-xl shadow-card p-6 border border-slate-100">
+                        <h3 class="text-lg font-bold text-slate-800 mb-5 border-b border-slate-100 pb-3">Interface Theme</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            ${themesHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateNotificationsTab() {
+            return `
+                <div class="animate-fade-in space-y-6">
+                    <div class="bg-white rounded-xl shadow-card p-6 border border-slate-100">
+                        <h3 class="text-lg font-bold text-slate-800 mb-5 border-b border-slate-100 pb-3">Alert Preferences</h3>
+                        <p class="text-sm text-slate-500 mb-4">Choose what notifications you want to receive and how they are delivered.</p>
+                        <div class="max-w-2xl">
+                            ${buildToggleGroup(toggleSettingsData.notificationPreferences)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateSecurityTab() {
+            return `
+                <div class="animate-fade-in space-y-6">
+                    <div class="bg-white rounded-xl shadow-card p-6 border border-slate-100">
+                        <h3 class="text-lg font-bold text-slate-800 mb-5 border-b border-slate-100 pb-3">Authentication & Sessions</h3>
+                        <div class="max-w-2xl">
+                            ${buildToggleGroup(toggleSettingsData.securitySettings)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTabContent() {
+            const container = document.getElementById("tab-content");
+            switch(currentTab) {
+                case "general": container.innerHTML = generateGeneralTab(); break;
+                case "appearance": container.innerHTML = generateAppearanceTab(); break;
+                case "notifications": container.innerHTML = generateNotificationsTab(); break;
+                case "security": container.innerHTML = generateSecurityTab(); break;
+                default: container.innerHTML = generateGeneralTab();
+            }
+        }
+
+        // --- INITIALIZATION & EVENTS ---
+        
+        function init() {
+            renderSidebar();
+            renderTabs();
+            renderSideWidgets();
+            renderTabContent();
+
+            // Event Delegation for Tabs
+            document.getElementById("settings-tabs").addEventListener("click", (e) => {
+                const tabEl = e.target.closest("li[data-tab]");
+                if (!tabEl) return;
+                
+                const tabId = tabEl.getAttribute("data-tab");
+                if (tabId !== currentTab) {
+                    currentTab = tabId;
+                    renderTabs(); // Update active states
+                    renderTabContent(); // Render new content
+                }
+            });
+
+            // Prevent default navigation for empty hashes
+            document.addEventListener("click", function(e) {
+                const link = e.target.closest("a[href^='#']");
+                if (link) {
+                    e.preventDefault();
+                    console.log("Navigation to:", link.getAttribute("href"));
+                }
+            });
+        }
+
+        // Boot
+        document.addEventListener("DOMContentLoaded", init);
+
+    </script>
+</body>
+</html>
