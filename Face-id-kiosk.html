@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laborion Kiosk - Face ID</title>
+    <meta name="description" content="Laborion worker check-in/out kiosk with face recognition">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 30px rgba(59, 130, 246, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+        
+        .scan-animation {
+            animation: scan 2s ease-in-out infinite;
+        }
+        
+        @keyframes scan {
+            0%, 100% { transform: translateY(-100%); opacity: 0; }
+            50% { transform: translateY(100%); opacity: 1; }
+        }
+        
+        .success-checkmark {
+            animation: checkmark 0.5s ease-in-out;
+        }
+        
+        @keyframes checkmark {
+            0% { transform: scale(0) rotate(0deg); }
+            50% { transform: scale(1.2) rotate(180deg); }
+            100% { transform: scale(1) rotate(360deg); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .camera-frame {
+            position: relative;
+            border: 4px solid #3b82f6;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+        
+        .camera-frame::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    
+    <div class="w-full max-w-2xl">
+        
+        <!-- Header -->
+        <div class="text-center mb-8 fade-in">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-2xl mb-4">
+                <i class="fas fa-briefcase text-4xl text-blue-600"></i>
+            </div>
+            <h1 class="text-4xl font-bold text-white mb-2">Laborion Kiosk</h1>
+            <p class="text-blue-100 text-lg">Face Recognition Check-In/Out System</p>
+        </div>
+
+        <!-- Main Card -->
+        <div class="bg-white rounded-3xl shadow-2xl overflow-hidden fade-in">
+            
+            <!-- Status Bar -->
+            <div id="status-bar" class="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
+                <div class="flex items-center justify-between text-white">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                        <span class="font-medium">System Online</span>
+                    </div>
+                    <div class="text-sm" id="current-time">--:--:--</div>
+                </div>
+            </div>
+
+            <!-- Camera/Face Recognition Area -->
+            <div class="p-8">
+                <div id="scan-area" class="relative">
+                    
+                    <!-- Idle State -->
+                    <div id="idle-state" class="text-center">
+                        <div class="camera-frame w-64 h-64 mx-auto mb-6 bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center pulse-ring">
+                            <i class="fas fa-user-circle text-8xl text-blue-300"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-slate-800 mb-2">Ready to Scan</h2>
+                        <p class="text-slate-500 mb-8">Position your face in front of the camera</p>
+                    </div>
+
+                    <!-- Scanning State (Hidden by default) -->
+                    <div id="scanning-state" class="text-center hidden">
+                        <div class="camera-frame w-64 h-64 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative">
+                            <i class="fas fa-user-circle text-8xl text-blue-400"></i>
+                            <div class="absolute inset-0 scan-animation bg-gradient-to-b from-transparent via-blue-400 to-transparent opacity-30"></div>
+                        </div>
+                        <h2 class="text-2xl font-bold text-slate-800 mb-2">Scanning Face...</h2>
+                        <p class="text-slate-500 mb-8">Please hold still</p>
+                        <div class="flex justify-center">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        </div>
+                    </div>
+
+                    <!-- Success State (Hidden by default) -->
+                    <div id="success-state" class="text-center hidden">
+                        <div class="w-64 h-64 mx-auto mb-6 bg-gradient-to-br from-green-50 to-green-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-check-circle text-8xl text-green-500 success-checkmark"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-slate-800 mb-2" id="success-title">Check-In Successful!</h2>
+                        <p class="text-slate-500 mb-4" id="success-message">Welcome back, <span id="worker-name" class="font-semibold text-slate-700">John Doe</span></p>
+                        <div class="bg-slate-50 rounded-xl p-4 max-w-sm mx-auto">
+                            <div id="check-details" class="space-y-2 text-sm"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-4 mt-8">
+                    <button id="check-in-btn" class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-6 px-8 rounded-2xl shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95">
+                        <i class="fas fa-sign-in-alt text-2xl mb-2"></i>
+                        <div class="text-lg">Check In</div>
+                    </button>
+                    <button id="check-out-btn" class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-6 px-8 rounded-2xl shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95">
+                        <i class="fas fa-sign-out-alt text-2xl mb-2"></i>
+                        <div class="text-lg">Check Out</div>
+                    </button>
+                </div>
+
+                <!-- Connection Status -->
+                <div class="mt-6 text-center">
+                    <div id="connection-status" class="inline-flex items-center space-x-2 text-sm text-slate-500">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span>Connected to Admin System</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer Info -->
+        <div class="text-center mt-6 text-white text-sm opacity-75">
+            <p>Kiosk ID: KIOSK-001 | Location: Main Entrance</p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATA LAYER ---
+        const kioskConfig = {
+            kioskId: "KIOSK-001",
+            location: "Main Entrance",
+            adminEndpoint: "http://192.168.1.100:3000/api/attendance", // Change this to your admin computer IP
+            reconnectInterval: 5000
+        };
+
+        const checkDetailsTemplate = [
+            { icon: "fa-clock", label: "Time", key: "time" },
+            { icon: "fa-calendar", label: "Date", key: "date" },
+            { icon: "fa-map-marker-alt", label: "Location", key: "location" }
+        ];
+
+        // Simulated worker database (in production, this would come from face recognition)
+        const workerDatabase = [
+            { id: "W001", name: "John Doe", department: "Production", photo: "https://picsum.photos/200?random=1" },
+            { id: "W002", name: "Jane Smith", department: "Quality Control", photo: "https://picsum.photos/200?random=2" },
+            { id: "W003", name: "Mike Johnson", department: "Maintenance", photo: "https://picsum.photos/200?random=3" },
+            { id: "W004", name: "Sarah Williams", department: "Logistics", photo: "https://picsum.photos/200?random=4" }
+        ];
+
+        let currentState = "idle"; // idle, scanning, success
+        let connectionStatus = true;
+
+        // --- UTILITY FUNCTIONS ---
+        
+        function getCurrentDateTime() {
+            const now = new Date();
+            return {
+                time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+                date: now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+                timestamp: now.toISOString()
+            };
+        }
+
+        function updateClock() {
+            const timeEl = document.getElementById("current-time");
+            const now = new Date();
+            timeEl.textContent = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        }
+
+        function simulateFaceRecognition() {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const randomWorker = workerDatabase[Math.floor(Math.random() * workerDatabase.length)];
+                    resolve(randomWorker);
+                }, 2000); // Simulate 2 second scan
+            });
+        }
+
+        // --- STATE MANAGEMENT ---
+        
+        function setState(newState) {
+            currentState = newState;
+            
+            document.getElementById("idle-state").classList.toggle("hidden", newState !== "idle");
+            document.getElementById("scanning-state").classList.toggle("hidden", newState !== "scanning");
+            document.getElementById("success-state").classList.toggle("hidden", newState !== "success");
+        }
+
+        // --- RENDER FUNCTIONS ---
+        
+        function renderCheckDetails(data) {
+            const html = checkDetailsTemplate.map(item => `
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 flex items-center">
+                        <i class="fas ${item.icon} w-5 mr-2"></i>${item.label}
+                    </span>
+                    <span class="font-medium text-slate-700">${data[item.key]}</span>
+                </div>
+            `).join("");
+            document.getElementById("check-details").innerHTML = html;
+        }
+
+        // --- API COMMUNICATION ---
+        
+        async function sendToAdminSystem(attendanceData) {
+            try {
+                const response = await fetch(kioskConfig.adminEndpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(attendanceData)
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to send data to admin system");
+                }
+
+                const result = await response.json();
+                console.log("Data sent successfully:", result);
+                updateConnectionStatus(true);
+                return result;
+
+            } catch (error) {
+                console.error("Error sending to admin system:", error);
+                updateConnectionStatus(false);
+                
+                // Store locally if connection fails
+                storeLocallyForRetry(attendanceData);
+                return null;
+            }
+        }
+
+        function storeLocallyForRetry(data) {
+            const pendingData = JSON.parse(localStorage.getItem("pendingAttendance") || "[]");
+            pendingData.push(data);
+            localStorage.setItem("pendingAttendance", JSON.stringify(pendingData));
+            console.log("Data stored locally for retry");
+        }
+
+        function updateConnectionStatus(isConnected) {
+            connectionStatus = isConnected;
+            const statusEl = document.getElementById("connection-status");
+            
+            if (isConnected) {
+                statusEl.innerHTML = `
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span>Connected to Admin System</span>
+                `;
+                statusEl.className = "inline-flex items-center space-x-2 text-sm text-slate-500";
+            } else {
+                statusEl.innerHTML = `
+                    <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span>Connection Lost - Data Saved Locally</span>
+                `;
+                statusEl.className = "inline-flex items-center space-x-2 text-sm text-red-600";
+            }
+        }
+
+        // --- CHECK IN/OUT LOGIC ---
+        
+        async function handleCheckIn() {
+            if (currentState !== "idle") return;
+            
+            setState("scanning");
+            
+            // Simulate face recognition
+            const worker = await simulateFaceRecognition();
+            
+            // Prepare attendance data
+            const dateTime = getCurrentDateTime();
+            const attendanceData = {
+                workerId: worker.id,
+                workerName: worker.name,
+                department: worker.department,
+                action: "check-in",
+                timestamp: dateTime.timestamp,
+                time: dateTime.time,
+                date: dateTime.date,
+                location: kioskConfig.location,
+                kioskId: kioskConfig.kioskId
+            };
+            
+            // Send to admin system
+            await sendToAdminSystem(attendanceData);
+            
+            // Show success state
+            setState("success");
+            document.getElementById("success-title").textContent = "Check-In Successful!";
+            document.getElementById("success-message").innerHTML = `Welcome back, <span class="font-semibold text-slate-700">${worker.name}</span>`;
+            document.getElementById("worker-name").textContent = worker.name;
+            
+            renderCheckDetails({
+                time: dateTime.time,
+                date: dateTime.date,
+                location: kioskConfig.location
+            });
+            
+            // Reset to idle after 5 seconds
+            setTimeout(() => {
+                setState("idle");
+            }, 5000);
+        }
+
+        async function handleCheckOut() {
+            if (currentState !== "idle") return;
+            
+            setState("scanning");
+            
+            // Simulate face recognition
+            const worker = await simulateFaceRecognition();
+            
+            // Prepare attendance data
+            const dateTime = getCurrentDateTime();
+            const attendanceData = {
+                workerId: worker.id,
+                workerName: worker.name,
+                department: worker.department,
+                action: "check-out",
+                timestamp: dateTime.timestamp,
+                time: dateTime.time,
+                date: dateTime.date,
+                location: kioskConfig.location,
+                kioskId: kioskConfig.kioskId
+            };
+            
+            // Send to admin system
+            await sendToAdminSystem(attendanceData);
+            
+            // Show success state
+            setState("success");
+            document.getElementById("success-title").textContent = "Check-Out Successful!";
+            document.getElementById("success-message").innerHTML = `Goodbye, <span class="font-semibold text-slate-700">${worker.name}</span>. Have a great day!`;
+            document.getElementById("worker-name").textContent = worker.name;
+            
+            renderCheckDetails({
+                time: dateTime.time,
+                date: dateTime.date,
+                location: kioskConfig.location
+            });
+            
+            // Reset to idle after 5 seconds
+            setTimeout(() => {
+                setState("idle");
+            }, 5000);
+        }
+
+        // --- EVENT LISTENERS ---
+        
+        function initEventListeners() {
+            document.getElementById("check-in-btn").addEventListener("click", handleCheckIn);
+            document.getElementById("check-out-btn").addEventListener("click", handleCheckOut);
+        }
+
+        // --- INITIALIZATION ---
+        
+        function init() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            initEventListeners();
+            setState("idle");
+            
+            console.log("Kiosk initialized");
+            console.log("Admin endpoint:", kioskConfig.adminEndpoint);
+            console.log("To change admin computer address, update kioskConfig.adminEndpoint in the code");
+        }
+
+        document.addEventListener("DOMContentLoaded", init);
+    </script>
+</body>
+</html>
